@@ -1,0 +1,111 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+enum Role {
+  UNIVERSITY
+  SCHOOL
+  TCAS
+  ADMIN
+}
+
+enum StudyPlan {
+  SCIENCE_MATH     
+  ARTS_MATH        
+  ARTS_LANGUAGE    
+  GENERAL          
+}
+// ทำ DFD ให้ตรงตามนี้
+// 1. ตารางผู้ใช้งานสำหรับเจ้าหน้าที่ (Uni, School, TCAS, Admin)
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  university University?
+  school     School?
+  auditLogs  AuditLog[]
+}
+
+// 2. ข้อมูลมหาวิทยาลัย
+model University {
+  id           String            @id @default(uuid())
+  userId       String            @unique
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  abbreviation String            
+  name         String            
+  criteria     ProgramCriteria[]
+}
+
+// 3. เกณฑ์การรับสมัคร (กรอกโดย มหาวิทยาลัย)
+model ProgramCriteria {
+  id           String     @id @default(uuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  campus       String     
+  faculty      String     
+  major        String     
+  studyPlan    StudyPlan  
+  minGpax      Float      
+  minTgat      Float      
+  seats        Int        
+  tuitionFee   Float     
+  createdAt    DateTime   @default(now())
+}
+
+// 4. ข้อมูลโรงเรียน
+model School {
+  id         String    @id @default(uuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolCode String    @unique
+  name       String
+  students   Student[]
+}
+
+// 5. ข้อมูลนักเรียน (กรอกโดย โรงเรียน)
+model Student {
+  id          String    @id @default(uuid())
+  schoolId    String
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentCode String    
+  citizenId   String    @unique 
+  fullName    String
+  studyPlan   StudyPlan
+  gpax        Float     
+  gradYear    Int       
+  pdfPor1Url  String?   
+  createdAt   DateTime  @default(now())
+
+  tcasScore   TcasScore?
+}
+
+// 6. คะแนนสอบ TCAS (กรอกโดย TCAS ผ่าน เลขบัตรประชาชน)
+model TcasScore {
+  id        String   @id @default(uuid())
+  citizenId String   @unique
+  student   Student  @relation(fields: [citizenId], references: [citizenId], onDelete: Cascade)
+  tgatScore Float    @default(0) 
+  tpat1     Float?   
+  updatedAt DateTime @updatedAt
+}
+
+// 7. Activity Log (สำหรับ Admin)
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   
+  details   String
+  createdAt DateTime @default(now())
+}
