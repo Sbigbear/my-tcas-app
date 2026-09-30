@@ -28,15 +28,18 @@ export default function SearchPage() {
   useEffect(() => {
     async function fetchPrograms() {
       try {
-        const studentId = typeof window !== 'undefined' 
-          ? localStorage.getItem('studentId') || '66010001' 
-          : '66010001'
+        // 📌 1. ดึง studentId จาก localStorage ถ้าไม่มีให้ลองใช้ default หรือค่าที่มีใน DB
+        let studentId = typeof window !== 'undefined' ? localStorage.getItem('studentId') : null
+
+        // ถ้าไม่มีใน localStorage ให้ลองใช้รหัสนิสิตชั่วคราวเพื่อดึงรายการหลักสูตรมาโชว์ก่อน
+        if (!studentId) {
+          studentId = '65010004' // หรือรหัสที่มีในฐานข้อมูล
+        }
 
         const res = await fetch(`/api/student/matching?studentId=${studentId}`, {
           cache: 'no-store'
         })
 
-        // เช็กว่า Response เป็น JSON หรือไม่
         const contentType = res.headers.get('content-type')
         if (res.ok && contentType && contentType.includes('application/json')) {
           const data = await res.json()
@@ -59,9 +62,7 @@ export default function SearchPage() {
   const handleApply = async (criteriaId: string, programName: string) => {
     setApplyingId(criteriaId)
     try {
-      const studentId = typeof window !== 'undefined' 
-        ? localStorage.getItem('studentId') || '66010001' 
-        : '66010001'
+      const studentId = typeof window !== 'undefined' ? localStorage.getItem('studentId') || '65010004' : '65010004'
 
       const res = await fetch('/api/student/apply', {
         method: 'POST',
@@ -136,7 +137,7 @@ export default function SearchPage() {
         </div>
       ) : filteredPrograms.length === 0 ? (
         <div className="text-center py-12 text-slate-500 bg-white rounded-2xl border border-slate-100">
-          ไม่พบหลักสูตรที่ค้นหา (กรุณาเช็ก API หรือ Database)
+          ไม่พบหลักสูตรที่เปิดรับสมัครในขณะนี้
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

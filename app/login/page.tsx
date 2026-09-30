@@ -19,7 +19,7 @@ export default function LoginPage() {
         return {
           title: 'ตรวจสอบคะแนนและโอกาสเข้าศึกษา',
           subtitle: 'ดูข้อมูลผลการเรียน คะแนนสอบ และหลักสูตรที่ผ่านเกณฑ์',
-          userLabel: 'เลขประจำตัวประชาชน 13 หลัก',
+          userLabel: 'เลขประจำตัวประชาชน 13 หลัก หรือ รหัสนิสิต',
           placeholder: '1103700123456',
         }
       case 'teacher':
@@ -70,7 +70,20 @@ export default function LoginPage() {
           name: username,
           role: role,
         }
+        
+        // 1. บันทึกข้อมูล Object ของผู้ใช้
         localStorage.setItem('user', JSON.stringify(userToSave))
+
+        // 📌 2. บันทึก studentId แยกไว้สำหรับใช้อ้างอิงใน API Matching และ Apply
+        if (role === 'student') {
+          const studentIdToStore = 
+            userToSave.studentId || 
+            userToSave.id || 
+            userToSave.nationalId || 
+            username
+
+          localStorage.setItem('studentId', studentIdToStore)
+        }
 
         if (role === 'student') router.push('/student/dashboard')
         else if (role === 'teacher') router.push('/teacher/dashboard')

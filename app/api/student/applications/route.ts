@@ -4,30 +4,31 @@ import prisma from '@/lib/prisma'
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const studentId = searchParams.get('studentId')
+    const studentIdParam = searchParams.get('studentId')
 
-    if (!studentId) {
+    if (!studentIdParam) {
       return NextResponse.json(
         { success: false, message: 'กรุณาระบุ studentId' },
         { status: 400 }
       )
     }
 
-    // 1. ค้นหา student จาก id หรือ studentId
+    // ค้นหาข้อมูลนักเรียนจาก id หรือ studentId
     const student = await prisma.student.findFirst({
       where: {
-        OR: [{ id: studentId }, { studentId: studentId }],
+        OR: [{ id: studentIdParam }, { studentId: studentIdParam }],
       },
     })
 
+    // 📌 หากไม่พบข้อมูลนักเรียน ให้ตอบกลับว่าไม่มีรายการสมัคร (Data: []) ไม่โยน Error 404
     if (!student) {
-      return NextResponse.json(
-        { success: false, message: 'ไม่พบข้อมูลนักเรียน' },
-        { status: 404 }
-      )
+      return NextResponse.json({
+        success: true,
+        data: [],
+      })
     }
 
-    // 2. ดึงข้อมูลการสมัครของนักเรียนคนนี้
+    // ดึงเฉพาะรายการสมัครของนักเรียนคนนี้เท่านั้น
     const applications = await prisma.application.findMany({
       where: {
         studentId: student.id,

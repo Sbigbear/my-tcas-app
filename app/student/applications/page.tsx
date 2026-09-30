@@ -20,23 +20,31 @@ interface ApplicationItem {
 export default function StudentApplicationsPage() {
   const [applications, setApplications] = useState<ApplicationItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchMyApplications() {
       try {
-        const studentId =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('studentId') || '66010001'
-            : '66010001'
+        // ดึง studentId จาก localStorage โดยไม่ใช้ค่า Default แข็ง
+        const studentId = typeof window !== 'undefined' ? localStorage.getItem('studentId') : null
 
-        const res = await fetch(`/api/student/applications?studentId=${studentId}`)
+        if (!studentId) {
+          setErrorMsg('ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาล็อกอินใหม่อีกครั้ง')
+          setLoading(false)
+          return
+        }
+
+        const res = await fetch(`/api/student/applications?studentId=${encodeURIComponent(studentId)}`)
         const data = await res.json()
 
         if (data.success) {
           setApplications(data.data)
+        } else {
+          setErrorMsg(data.message || 'ไม่สามารถดึงข้อมูลการสมัครได้')
         }
       } catch (err) {
         console.error('Error fetching applications:', err)
+        setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
       } finally {
         setLoading(false)
       }
@@ -45,7 +53,6 @@ export default function StudentApplicationsPage() {
     fetchMyApplications()
   }, [])
 
-  // ฟังก์ชันแปลง Badges แสดงสถานะการตอบรับ
   const renderStatusBadge = (status: string) => {
     switch (status) {
       case 'ELIGIBLE':
@@ -89,6 +96,10 @@ export default function StudentApplicationsPage() {
 
       {loading ? (
         <div className="text-center py-12 text-slate-400">กำลังโหลดข้อมูลการสมัคร...</div>
+      ) : errorMsg ? (
+        <div className="p-8 text-center bg-rose-50 border border-rose-200 rounded-2xl text-rose-600">
+          <p className="font-semibold">{errorMsg}</p>
+        </div>
       ) : applications.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-3">
           <p className="text-base font-medium text-slate-600">คุณยังไม่ได้ยื่นสมัครหลักสูตรใดๆ</p>

@@ -8,8 +8,8 @@ export async function POST(request: Request) {
 
     if (!studentId || !criteriaId) {
       return NextResponse.json(
-        { success: false, message: 'ข้อมูลไม่ครบถ้วน (ขาด studentId หรือ criteriaId)' },
-        { status: 400 }
+        { success: false, message: 'กรุณาเข้าสู่ระบบก่อนทำการสมัคร (ไม่พบ studentId)' },
+        { status: 401 }
       )
     }
 
@@ -22,12 +22,27 @@ export async function POST(request: Request) {
 
     if (!student) {
       return NextResponse.json(
-        { success: false, message: 'ไม่พบข้อมูลนักเรียนในระบบ' },
+        { success: false, message: 'ไม่พบข้อมูลนักเรียนคนนี้ในฐานข้อมูล' },
         { status: 404 }
       )
     }
 
-    // 2. บันทึกข้อมูลลงตาราง Application
+    // 2. เช็กว่านักเรียนคนนี้เคยสมัครหลักสูตรนี้ไปแล้วหรือยัง
+    const existingApplication = await prisma.application.findFirst({
+      where: {
+        studentId: student.id,
+        criteriaId: criteriaId,
+      },
+    })
+
+    if (existingApplication) {
+      return NextResponse.json(
+        { success: false, message: 'คุณได้ยื่นสมัครหลักสูตรนี้ไปเรียบร้อยแล้ว' },
+        { status: 400 }
+      )
+    }
+
+    // 3. บันทึกข้อมูลลงตาราง Application
     const application = await prisma.application.create({
       data: {
         studentId: student.id,

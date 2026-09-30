@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 📌 บันทึก studentId ลงใน Cookie เพื่อใช้อ้างอิงตัวตนคนที่ล็อกอิน
+    // 📌 บันทึก studentId ลงใน Cookie
     const cookieStore = await cookies()
     cookieStore.set('student_id', student.id, {
       httpOnly: true,
@@ -32,13 +32,16 @@ export async function POST(request: Request) {
       path: '/',
     })
 
+    // 📌 ส่งข้อมูล user กลับไปให้ครบถ้วน ทั้ง id และ studentId
     return NextResponse.json({
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
-      student: {
+      user: {
         id: student.id,
+        studentId: student.studentId, // 👈 ส่ง studentId กลับไปด้วย
         name: student.name,
         nationalId: student.nationalId,
+        role: 'student',
       },
     })
   } catch (error) {

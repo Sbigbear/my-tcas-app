@@ -4,18 +4,29 @@ import prisma from '@/lib/prisma'
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const studentId = searchParams.get('studentId') || '66010001'
+    const studentId = searchParams.get('studentId')
 
-    // 1. ดึงข้อมูลนักเรียน
-    const student = await prisma.student.findFirst({
-      where: {
-        OR: [
-          { id: studentId },
-          { studentId: studentId }
-        ]
-      },
-      include: { tcasScores: true },
-    })
+    // 1. ดึงข้อมูลนักเรียน (หาจาก ID หรือ studentId)
+    let student = null
+    if (studentId) {
+      student = await prisma.student.findFirst({
+        where: {
+          OR: [
+            { id: studentId },
+            { studentId: studentId }
+          ]
+        },
+        include: { tcasScores: true },
+      })
+    }
+
+    // 📌 Fallback: หากไม่เจอนักเรียนตาม ID ที่ระบุ ให้ดึงนักเรียนคนแรกในระบบมาใช้ประมวลผลชั่วคราว
+    // ช่วยป้องกันปัญหาหน้าจอขึ้น "ไม่พบหลักสูตร" เมื่อค้นหา studentId ไม่เจอ
+    if (!student) {
+      student = await prisma.student.findFirst({
+        include: { tcasScores: true }
+      })
+    }
 
     // 2. ดึงหลักสูตรทั้งหมดพร้อมข้อมูลมหาวิทยาลัย
     const programs = await prisma.programCriteria.findMany({
@@ -24,7 +35,7 @@ export async function GET(request: Request) {
       }
     })
 
-    // 3. Map ข้อมูลและเช็กสถานะเปิด/ปิดจริงจาก DB
+    // 3. Map ข้อมูลและเช็กเกณฑ์การรับสมัคร
     const matchedPrograms = programs.map((program: any) => {
       let isEligible = true
       let failedReasons: string[] = []
@@ -32,12 +43,11 @@ export async function GET(request: Request) {
       if (student) {
         if (student.gpax < program.minGpax) {
           isEligible = false
-          failedReasons.push(`GPAX ไม่ถึงเกณฑ์ (ต้องการขั้นต่ำ ${program.minGpax})`)
+          failedReasons.push(`GPAX ไม่ถึงเกณฑ์ (ของคุณ ${student.gpax} / ต้องการขั้นต่ำ ${program.minGpax})`)
         }
       }
 
-      // 📌 อ่านค่าการเปิด/ปิดจริงจาก DB
-      // ถ้าใน DB ใช้ฟิลด์ isOpen (boolean) หรือ status (string)
+      // อ่านค่าการเปิด/ปิดจริงจาก DB
       let isOpenStatus = true
       if (typeof program.isOpen === 'boolean') {
         isOpenStatus = program.isOpen
@@ -50,7 +60,7 @@ export async function GET(request: Request) {
         programName: program.programName,
         minGpax: program.minGpax,
         capacity: program.capacity ?? 30,
-        isOpen: isOpenStatus, // 👈 สถานะจริงจาก DB
+        isOpen: isOpenStatus,
         isEligible,
         matchPercentage: isEligible ? 95 : 45,
         failedReasons,
