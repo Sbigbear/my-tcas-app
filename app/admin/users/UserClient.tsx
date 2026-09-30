@@ -145,6 +145,18 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
                 />
               </div>
 
+              {/* 📌 เพิ่มช่องกรอก Password */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">รหัสผ่าน</label>
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  placeholder="กำหนดรหัสผ่านอย่างน้อย 6 หลัก"
+                  className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B]"
+                />
+              </div>
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">บทบาทเริ่มต้น</label>
                 <select

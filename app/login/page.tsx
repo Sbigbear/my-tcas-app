@@ -66,9 +66,8 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (res.ok && data.success) {
-        // 📌 บันทึกข้อมูลลง localStorage เพื่อให้ Dashboard และ Sidebar ดึงไปใช้
-        const userToSave = data.user || {
-          name: data.user?.name || `ผู้ดูแลระบบ ${username}`,
+        const userToSave = data.user || data.student || {
+          name: username,
           role: role,
         }
         localStorage.setItem('user', JSON.stringify(userToSave))
@@ -222,12 +221,6 @@ export default function LoginPage() {
                   style={{ color: '#0f172a' }}
                   className="w-full px-4 py-3 text-sm text-[#0f172a] bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#07382B] focus:bg-white placeholder:text-slate-400 transition"
                 />
-              </div>
-
-              <div className="flex justify-end">
-                <a href="#" className="text-xs font-semibold text-emerald-700 hover:underline">
-                  ลืมรหัสผ่าน?
-                </a>
               </div>
 
               <button

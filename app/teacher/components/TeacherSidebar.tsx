@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 interface TeacherSidebarProps {
   teacherName?: string
@@ -10,6 +10,12 @@ interface TeacherSidebarProps {
 
 export default function TeacherSidebar({ teacherName, teacherEmail }: TeacherSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    // ลบ Token/Session (ถ้ามี) แล้ว redirect ไปหน้า Login
+    router.push('/login')
+  }
 
   const navItems = [
     { label: 'ภาพรวม', href: '/teacher/dashboard', icon: '🏠' },
@@ -54,20 +60,30 @@ export default function TeacherSidebar({ teacherName, teacherEmail }: TeacherSid
         </nav>
       </div>
 
+      {/* ส่วนกล่องโปรไฟล์ด้านล่าง + ปุ่ม Logout */}
       <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xs text-white">
             {teacherName ? teacherName.charAt(0) : 'ศ'}
           </div>
           <div>
-            <p className="font-bold text-xs text-white truncate max-w-[120px]">
+            <p className="font-bold text-xs text-white truncate max-w-[100px]">
               {teacherName || 'อาจารย์ ดร.ศศิน'}
             </p>
-            <p className="text-[10px] text-slate-300 truncate max-w-[120px]">
+            <p className="text-[10px] text-slate-300 truncate max-w-[100px]">
               {teacherEmail || 'กรรมการคัดเลือก'}
             </p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          title="ออกจากระบบ"
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
       </div>
     </aside>
   )

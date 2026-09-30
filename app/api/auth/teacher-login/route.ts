@@ -13,19 +13,22 @@ export async function POST(request: Request) {
       )
     }
 
-    // ค้นหาอาจารย์/เจ้าหน้าที่ในตาราง User
+    // 📌 เพิ่มการเช็ก role: ต้องเป็น TEACHER หรือ OFFICER เท่านั้น
     const teacher = await prisma.user.findFirst({
       where: {
         OR: [
           { email: username },
           { teacherId: username }
-        ]
+        ],
+        role: {
+          in: ['OFFICER']
+        }
       }
     })
 
     if (!teacher || teacher.password !== password) {
       return NextResponse.json(
-        { success: false, message: 'อีเมล/บัญชีผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง' },
+        { success: false, message: 'บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานในส่วนของอาจารย์ หรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }
       )
     }
@@ -36,11 +39,11 @@ export async function POST(request: Request) {
       user: {
         id: teacher.id,
         name: teacher.name,
-        email: teacher.email
+        email: teacher.email,
+        role: teacher.role
       }
     })
 
-    // ฝาก Cookie บันทึกการเข้าสู่ระบบ
     response.cookies.set('teacher_id', teacher.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -55,6 +58,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { success: false, message: `เกิดข้อผิดพลาด: ${error?.message || 'Server Error'}` },
       { status: 500 }
-    )
+    );
   }
 }

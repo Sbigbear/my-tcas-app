@@ -6,9 +6,10 @@ import { revalidatePath } from 'next/cache'
 export async function createUserData(formData: FormData) {
   const name = formData.get('name') as string
   const email = formData.get('email') as string
+  const password = formData.get('password') as string // 📌 ดึงค่า password จาก Form
   const roleType = formData.get('role') as 'STUDENT' | 'OFFICER' | 'ADMIN'
 
-  if (!name || !email || !roleType) return
+  if (!name || !email || !password || !roleType) return
 
   if (roleType === 'STUDENT') {
     // หา School ตัวแรกในระบบมารองรับการสร้างข้อมูล Student ชั่วคราว
@@ -28,6 +29,7 @@ export async function createUserData(formData: FormData) {
         gpax: 0.0,
         transcriptUrl: '',
         schoolId: defaultSchool.id,
+        // password: password, // 👈 ถ้าใน schema.prisma ของ Student มีฟิลด์ password สามารถปลดคอมเมนต์ตรงนี้ได้ครับ
       },
     })
 
@@ -44,7 +46,7 @@ export async function createUserData(formData: FormData) {
       data: {
         name,
         email,
-        password: 'Password123!',
+        password: password, // 📌 บันทึก password จากฟอร์มแทนค่า Default เดิม ('Password123!')
         role: roleType,
       },
     })

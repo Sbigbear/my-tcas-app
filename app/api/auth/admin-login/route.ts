@@ -5,22 +5,23 @@ export async function POST(req: Request) {
   try {
     const { username, password } = await req.json()
 
-    // ค้นหา Admin จากตาราง user ที่มี role เป็น ADMIN
+    // 📌 ค้นหาจากทั้ง ADMIN และ OFFICER
     const user = await prisma.user.findFirst({
       where: {
         email: username,
-        role: 'ADMIN',
+        role: {
+          in: ['ADMIN']
+        }
       },
     })
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: 'ไม่พบบัญชีผู้ดูแลระบบนี้' },
+        { success: false, message: 'ไม่พบบัญชีผู้ดูแลระบบหรือเจ้าหน้าที่ในระบบ' },
         { status: 404 }
       )
     }
 
-    // เช็ครหัสผ่าน
     if (user.password !== password) {
       return NextResponse.json(
         { success: false, message: 'รหัสผ่านไม่ถูกต้อง' },
