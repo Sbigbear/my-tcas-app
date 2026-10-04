@@ -21,6 +21,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // 1. ข้อมูลพื้นฐาน
+  const [criteriaId, setCriteriaId] = useState('')
   const [programName, setProgramName] = useState('')
   const [capacity, setCapacity] = useState('')
   const [isOpen, setIsOpen] = useState(true)
@@ -92,6 +93,10 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     setErrorMessage(null)
 
     if (tabToValidate === 'basic') {
+      if (!criteriaId.trim()) {
+        setErrorMessage('กรุณากรอกรหัสเกณฑ์ / รหัสหมู่เรียน (เช่น QH800-67)')
+        return false
+      }
       if (!programName.trim()) {
         setErrorMessage('กรุณากรอกชื่อหลักสูตร / โครงการ')
         return false
@@ -163,6 +168,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     }
 
     const payload: Record<string, any> = {
+      Program_Criteriaid: criteriaId.trim(),
       universityId,
       programName,
       capacity: Number(capacity),
@@ -285,7 +291,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               </div>
             )}
 
-            {/* Steps Navigation Bar - ปรับเป็น grid 4 ช่องเท่ากัน ไม่เบียด */}
+            {/* Steps Navigation Bar */}
             <div className="grid grid-cols-4 border-b bg-slate-100 text-xs font-medium text-slate-600 px-4 pt-2 gap-1 text-center">
               <button
                 type="button"
@@ -339,6 +345,22 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               {/* PAGE 1: ข้อมูลหลักสูตร */}
               {activeTab === 'basic' && (
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      รหัสเกณฑ์ / รหัสหมู่เรียน <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="เช่น QH800-67"
+                      value={criteriaId}
+                      onChange={(e) => setCriteriaId(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 uppercase font-mono"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      ระบุรหัสประจำเกณฑ์ (เช่น QR700 สำหรับภาคปกติ หรือ QR800 สำหรับภาคพิเศษ)
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อหลักสูตร / โครงการ <span className="text-red-500">*</span></label>
                     <input
@@ -425,7 +447,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
 
             </div>
 
-            {/* Modal Footer Bar - ปรับปุ่มถัดไป/บันทึกให้ชิดขวาเสมอกับขอบช่องด้านบน */}
+            {/* Modal Footer Bar */}
             <div className="flex items-center justify-between p-5 border-t bg-slate-50">
               {activeTab === 'basic' ? (
                 <button
@@ -477,7 +499,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
         </div>
       )}
 
-      {/* Modal ป๊อปอัพยืนยันการบันทึกข้อมูลอีกครั้งก่อนส่ง API */}
+      {/* Modal ป๊อปอัพยืนยันการบันทึกข้อมูล */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
