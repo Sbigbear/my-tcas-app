@@ -15,6 +15,7 @@ interface CriteriaState {
 export default function AddCourseModal({ universityId }: { universityId: string | null }) {
   const router = useRouter()
   const [isOpenModal, setIsOpenModal] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'basic' | 'gpa' | 'tgas_tpat' | 'alevel'>('basic')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -48,7 +49,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     minTpat5: { active: false, value: '', label: 'TPAT5 ครุศาสตร์/ศึกษาศาสตร์', max: 100, step: '0.01' },
   })
 
-  // 4. A-Level (ตัดเลขรหัสวิชาออกเรียบร้อยแล้ว)
+  // 4. A-Level
   const [alevelFields, setAlevelFields] = useState<Record<string, CriteriaState>>({
     minAlevelMath1: { active: false, value: '', label: 'A-Level Math1 คณิตศาสตร์ประยุกต์ 1', max: 100, step: '0.01' },
     minAlevelMath2: { active: false, value: '', label: 'A-Level Math2 คณิตศาสตร์ประยุกต์ 2', max: 100, step: '0.01' },
@@ -63,7 +64,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
   })
   const [foreignLanguageSubject, setForeignLanguageSubject] = useState('')
 
-  // Helper สลับสถานะเปิด/ปิดวิชา
   const handleToggle = (
     setter: React.Dispatch<React.SetStateAction<Record<string, CriteriaState>>>,
     key: string
@@ -87,11 +87,11 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     }))
   }
 
-  // ตรวจสอบความถูกต้องของแต่ละหน้า
-  const validateCurrentTab = (): boolean => {
+  // ตรวจสอบความถูกต้องของข้อมูลเฉพาะหน้าที่ระบุ
+  const validateTab = (tabToValidate = activeTab): boolean => {
     setErrorMessage(null)
 
-    if (activeTab === 'basic') {
+    if (tabToValidate === 'basic') {
       if (!programName.trim()) {
         setErrorMessage('กรุณากรอกชื่อหลักสูตร / โครงการ')
         return false
@@ -100,22 +100,22 @@ export default function AddCourseModal({ universityId }: { universityId: string 
         setErrorMessage('กรุณากรอกจำนวนที่รับสมัครให้ถูกต้อง (มากกว่า 0)')
         return false
       }
-    } else if (activeTab === 'gpa') {
-      for (const [key, item] of Object.entries(gpaFields)) {
+    } else if (tabToValidate === 'gpa') {
+      for (const item of Object.values(gpaFields)) {
         if (item.active && (item.value === '' || item.value === null || isNaN(Number(item.value)))) {
           setErrorMessage(`คุณกำหนดให้มีเกณฑ์ "${item.label}" แต่ยังไม่ได้กรอกคะแนน/เกรดขั้นต่ำ`)
           return false
         }
       }
-    } else if (activeTab === 'tgas_tpat') {
-      for (const [key, item] of Object.entries(tpatFields)) {
+    } else if (tabToValidate === 'tgas_tpat') {
+      for (const item of Object.values(tpatFields)) {
         if (item.active && (item.value === '' || item.value === null || isNaN(Number(item.value)))) {
           setErrorMessage(`คุณกำหนดให้มีเกณฑ์ "${item.label}" แต่ยังไม่ได้กรอกคะแนนขั้นต่ำ`)
           return false
         }
       }
-    } else if (activeTab === 'alevel') {
-      for (const [key, item] of Object.entries(alevelFields)) {
+    } else if (tabToValidate === 'alevel') {
+      for (const item of Object.values(alevelFields)) {
         if (item.active && (item.value === '' || item.value === null || isNaN(Number(item.value)))) {
           setErrorMessage(`คุณกำหนดให้มีเกณฑ์ "${item.label}" แต่ยังไม่ได้กรอกคะแนนขั้นต่ำ`)
           return false
@@ -130,9 +130,9 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     return true
   }
 
-  // นำทางไปหน้าถัดไป
+  // เลื่อนไปหน้าถัดไป
   const handleNext = () => {
-    if (!validateCurrentTab()) return
+    if (!validateTab(activeTab)) return
 
     if (activeTab === 'basic') setActiveTab('gpa')
     else if (activeTab === 'gpa') setActiveTab('tgas_tpat')
@@ -147,10 +147,15 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     else if (activeTab === 'gpa') setActiveTab('basic')
   }
 
-  // บันทึกข้อมูล (ทำได้เฉพาะหน้าสุดท้าย)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateCurrentTab()) return
+  // เปิด Modal ยืนยันเฉพาะเมื่อกดบันทึกในหน้าสุดท้ายเท่านั้น
+  const handleOpenConfirmModal = () => {
+    if (!validateTab('alevel')) return
+    setShowConfirmModal(true)
+  }
+
+  // ฟังก์ชันยิง API บันทึกข้อมูลจริง
+  const executeSubmit = async () => {
+    setShowConfirmModal(false)
 
     if (!universityId) {
       setErrorMessage('ไม่พบข้อมูลรหัสสาขา (universityId) กรุณาล็อกอินใหม่อีกครั้ง')
@@ -246,6 +251,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
   return (
     <>
       <button
+        type="button"
         onClick={() => {
           setActiveTab('basic')
           setErrorMessage(null)
@@ -266,7 +272,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                 <h3 className="text-base font-bold text-slate-900">เพิ่มหลักสูตร / กำหนดเกณฑ์ TCAS</h3>
                 <p className="text-xs text-slate-500">กรอกข้อมูลให้ครบถ้วนตามขั้นตอน</p>
               </div>
-              <button onClick={() => setIsOpenModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button type="button" onClick={() => setIsOpenModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -279,14 +285,14 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               </div>
             )}
 
-            {/* Steps Navigation Bar */}
-            <div className="flex border-b bg-slate-100 text-xs font-medium text-slate-600 px-4 pt-2 gap-1 overflow-x-auto">
+            {/* Steps Navigation Bar - ปรับเป็น grid 4 ช่องเท่ากัน ไม่เบียด */}
+            <div className="grid grid-cols-4 border-b bg-slate-100 text-xs font-medium text-slate-600 px-4 pt-2 gap-1 text-center">
               <button
                 type="button"
                 onClick={() => {
-                  if (validateCurrentTab()) setActiveTab('basic')
+                  if (validateTab(activeTab)) setActiveTab('basic')
                 }}
-                className={`px-3 py-2 rounded-t-xl transition ${
+                className={`py-2 rounded-t-xl transition text-center ${
                   activeTab === 'basic' ? 'bg-white text-[#0A6B50] font-bold border-t-2 border-[#0A6B50]' : 'hover:bg-slate-200'
                 }`}
               >
@@ -295,9 +301,9 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               <button
                 type="button"
                 onClick={() => {
-                  if (validateCurrentTab()) setActiveTab('gpa')
+                  if (validateTab(activeTab)) setActiveTab('gpa')
                 }}
-                className={`px-3 py-2 rounded-t-xl transition ${
+                className={`py-2 rounded-t-xl transition text-center ${
                   activeTab === 'gpa' ? 'bg-white text-[#0A6B50] font-bold border-t-2 border-[#0A6B50]' : 'hover:bg-slate-200'
                 }`}
               >
@@ -306,9 +312,9 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               <button
                 type="button"
                 onClick={() => {
-                  if (validateCurrentTab()) setActiveTab('tgas_tpat')
+                  if (validateTab(activeTab)) setActiveTab('tgas_tpat')
                 }}
-                className={`px-3 py-2 rounded-t-xl transition ${
+                className={`py-2 rounded-t-xl transition text-center ${
                   activeTab === 'tgas_tpat' ? 'bg-white text-[#0A6B50] font-bold border-t-2 border-[#0A6B50]' : 'hover:bg-slate-200'
                 }`}
               >
@@ -317,9 +323,9 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               <button
                 type="button"
                 onClick={() => {
-                  if (validateCurrentTab()) setActiveTab('alevel')
+                  if (validateTab(activeTab)) setActiveTab('alevel')
                 }}
-                className={`px-3 py-2 rounded-t-xl transition ${
+                className={`py-2 rounded-t-xl transition text-center ${
                   activeTab === 'alevel' ? 'bg-white text-[#0A6B50] font-bold border-t-2 border-[#0A6B50]' : 'hover:bg-slate-200'
                 }`}
               >
@@ -327,8 +333,8 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               </button>
             </div>
 
-            {/* Modal Form Body */}
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
               
               {/* PAGE 1: ข้อมูลหลักสูตร */}
               {activeTab === 'basic' && (
@@ -417,54 +423,89 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                 </div>
               )}
 
-              {/* Wizard Bottom Buttons (ย้อนกลับ / ถัดไป / บันทึก) */}
-              <div className="flex items-center justify-between pt-4 border-t mt-4">
-                {activeTab === 'basic' ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsOpenModal(false)}
-                    className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition"
-                  >
-                    ยกเลิก
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1"
-                  >
-                    <ChevronLeft className="w-4 h-4" /> ย้อนกลับ
-                  </button>
-                )}
+            </div>
 
-                {activeTab !== 'alevel' ? (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="px-5 py-2 text-xs font-semibold text-white bg-[#0A6B50] hover:bg-[#07382B] rounded-xl flex items-center gap-1 shadow-sm transition"
-                  >
-                    ถัดไป <ChevronRight className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="px-5 py-2 text-xs font-semibold text-white bg-[#0A6B50] hover:bg-[#07382B] rounded-xl flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> กำลังบันทึก...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4" /> บันทึกข้อมูลเกณฑ์หลักสูตร
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </form>
+            {/* Modal Footer Bar - ปรับปุ่มถัดไป/บันทึกให้ชิดขวาเสมอกับขอบช่องด้านบน */}
+            <div className="flex items-center justify-between p-5 border-t bg-slate-50">
+              {activeTab === 'basic' ? (
+                <button
+                  type="button"
+                  onClick={() => setIsOpenModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-xl transition"
+                >
+                  ยกเลิก
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" /> ย้อนกลับ
+                </button>
+              )}
 
+              {activeTab !== 'alevel' ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#0A6B50] hover:bg-[#07382B] rounded-xl flex items-center gap-1 shadow-sm transition cursor-pointer ml-auto"
+                >
+                  ถัดไป <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpenConfirmModal}
+                  disabled={isLoading}
+                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#0A6B50] hover:bg-[#07382B] rounded-xl flex items-center gap-1.5 shadow-sm transition disabled:opacity-50 cursor-pointer ml-auto"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> กำลังบันทึก...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> บันทึกข้อมูลเกณฑ์หลักสูตร
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal ป๊อปอัพยืนยันการบันทึกข้อมูลอีกครั้งก่อนส่ง API */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div className="w-12 h-12 bg-amber-100 text-[#0A6B50] rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6 text-[#0A6B50]" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-slate-900">ยืนยันการบันทึกข้อมูลเกณฑ์หลักสูตร?</h4>
+              <p className="text-xs text-slate-500 mt-1">
+                กรุณาตรวจสอบความถูกต้องของข้อมูลเกณฑ์ TCAS ทั้งหมดก่อนกดยืนยัน
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+              >
+                ย้อนกลับไปตรวจสอบ
+              </button>
+              <button
+                type="button"
+                onClick={executeSubmit}
+                className="px-5 py-2 text-xs font-semibold text-white bg-[#0A6B50] hover:bg-[#07382B] rounded-xl transition shadow-sm cursor-pointer"
+              >
+                ยืนยันการบันทึก
+              </button>
+            </div>
           </div>
         </div>
       )}
