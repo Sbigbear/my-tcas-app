@@ -13,14 +13,14 @@ export async function GET(request: Request) {
       )
     }
 
-    // ค้นหาข้อมูลนักเรียนจาก id หรือ studentId
+    // ค้นหาข้อมูลนักเรียนจาก Studentsid หรือ studentCode
     const student = await prisma.student.findFirst({
       where: {
-        OR: [{ id: studentIdParam }, { studentId: studentIdParam }],
+        OR: [{ Studentsid: studentIdParam }, { studentCode: studentIdParam }],
       },
     })
 
-    // 📌 หากไม่พบข้อมูลนักเรียน ให้ตอบกลับว่าไม่มีรายการสมัคร (Data: []) ไม่โยน Error 404
+    // หากไม่พบข้อมูลนักเรียน ให้ตอบกลับว่าไม่มีรายการสมัคร
     if (!student) {
       return NextResponse.json({
         success: true,
@@ -28,10 +28,10 @@ export async function GET(request: Request) {
       })
     }
 
-    // ดึงเฉพาะรายการสมัครของนักเรียนคนนี้เท่านั้น
+    // ดึงเฉพาะรายการสมัครของนักเรียนคนนี้
     const applications = await prisma.application.findMany({
       where: {
-        studentId: student.id,
+        studentId: student.Studentsid,
       },
       include: {
         criteria: {
@@ -45,9 +45,15 @@ export async function GET(request: Request) {
       },
     })
 
+    // Map ข้อมูลเพื่อเปลี่ยน Applicationsid ให้กลายเป็น id ที่ Frontend เรียกใช้งาน
+    const formattedApplications = applications.map((app) => ({
+      ...app,
+      id: app.Applicationsid || (app as any).id,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: applications,
+      data: formattedApplications,
     })
   } catch (error: any) {
     console.error('Fetch Applications Error:', error)

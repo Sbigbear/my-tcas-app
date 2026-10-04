@@ -1,37 +1,38 @@
+// app/api/teacher/criteria/route.ts
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
+// ช่วยแปลงค่า String/Empty จาก Form เป็น Number หรือ null
 const toNumber = (val: any) => {
   if (val === null || val === undefined || val === '') return null
   const parsed = Number(val)
   return isNaN(parsed) ? null : parsed
 }
 
+// GET: ดึงข้อมูลเกณฑ์ (กรองตาม universityId ของอาจารย์)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     let universityId = searchParams.get('universityId')
 
+    // ถ้าไม่ได้ส่ง universityId มา ให้พยายามอ่านจาก Cookie/Token ของอาจารย์ที่ล็อกอิน
     if (!universityId) {
       const cookieStore = await cookies()
-      
-      // 📌 ปรับให้เช็ค Cookie ครอบคลุมทั้ง email, user_email, userId, teacher_id
-      let userEmail = cookieStore.get('email')?.value || cookieStore.get('user_email')?.value
-      let userId = cookieStore.get('userId')?.value || cookieStore.get('teacher_id')?.value
       const token = cookieStore.get('token')?.value
 
+      let userEmail: string | undefined
+      let userId: string | undefined
+
       if (token) {
-        try {
-          const decoded = jwt.decode(token) as any
-          if (decoded) {
-            userEmail = userEmail || decoded?.email || decoded?.userEmail
-            userId = userId || decoded?.id || decoded?.userId || decoded?.sub
-          }
-        } catch (e) {
-          console.error('JWT Decode Error:', e)
-        }
+        const decoded = jwt.decode(token) as any
+        userEmail = decoded?.email || decoded?.userEmail
+        userId = decoded?.id || decoded?.userId || decoded?.sub
+      }
+
+      if (!userEmail) {
+        userEmail = cookieStore.get('user_email')?.value
       }
 
       if (userEmail || userId) {
@@ -48,7 +49,9 @@ export async function GET(request: Request) {
       }
     }
 
+    // กรองตาม universityId (ถ้าเจอ)
     const whereCondition = universityId ? { universityId } : {}
+
     const criteria = await prisma.programCriteria.findMany({
       where: whereCondition,
       include: { university: true },
@@ -65,10 +68,12 @@ export async function GET(request: Request) {
   }
 }
 
+// POST: บันทึกเกณฑ์หลักสูตรใหม่
 export async function POST(req: Request) {
   try {
     const body = await req.json()
 
+    // 1. ตรวจสอบว่าส่ง universityId มาหรือไม่
     if (!body.universityId) {
       return NextResponse.json(
         { success: false, message: 'ไม่พบข้อมูลมหาวิทยาลัย/สาขา (universityId)' },
@@ -76,6 +81,7 @@ export async function POST(req: Request) {
       )
     }
 
+    // 2. บันทึก ProgramCriteria โดยผูกกับ universityId และแปลงข้อมูลตัวเลขให้ถูกต้อง
     const newCriteria = await prisma.programCriteria.create({
       data: {
         universityId: body.universityId,
@@ -83,6 +89,8 @@ export async function POST(req: Request) {
         capacity: toNumber(body.capacity) ?? 0,
         minGpax: toNumber(body.minGpax),
         isOpen: body.isOpen ?? true,
+
+        // GPA
         minMathGpa: toNumber(body.minMathGpa),
         minSciGpa: toNumber(body.minSciGpa),
         minEngGpa: toNumber(body.minEngGpa),
@@ -91,12 +99,16 @@ export async function POST(req: Request) {
         minHealthGpa: toNumber(body.minHealthGpa),
         minArtGpa: toNumber(body.minArtGpa),
         minCareerGpa: toNumber(body.minCareerGpa),
+
+        // TGAT / TPAT
         minTgat: toNumber(body.minTgat),
         minTpat1: toNumber(body.minTpat1),
         minTpat2: toNumber(body.minTpat2),
         minTpat3: toNumber(body.minTpat3),
         minTpat4: toNumber(body.minTpat4),
         minTpat5: toNumber(body.minTpat5),
+
+        // A-Level
         minAlevelMath1: toNumber(body.minAlevelMath1),
         minAlevelMath2: toNumber(body.minAlevelMath2),
         minAlevelSci: toNumber(body.minAlevelSci),
@@ -121,6 +133,7 @@ export async function POST(req: Request) {
   }
 }
 
+// PATCH: อัปเดตสถานะ เปิด/ปิด รับสมัคร
 export async function PATCH(req: Request) {
   try {
     const { id, isOpen } = await req.json()

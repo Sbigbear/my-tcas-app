@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 export async function createUserData(formData: FormData) {
   const name = formData.get('name') as string
   const email = formData.get('email') as string
-  const password = formData.get('password') as string // 📌 ดึงค่า password จาก Form
+  const password = formData.get('password') as string
   const roleType = formData.get('role') as 'STUDENT' | 'OFFICER' | 'ADMIN'
 
   if (!name || !email || !password || !roleType) return
@@ -18,18 +18,16 @@ export async function createUserData(formData: FormData) {
       throw new Error('กรุณาสร้างข้อมูล School ในระบบอย่างน้อย 1 รายการก่อน')
     }
 
-    const mockId = Date.now().toString().slice(-8)
+    const mockCode = Date.now().toString().slice(-8)
     const mockNationalId = '1' + Date.now().toString().padStart(12, '0').slice(-12)
 
     const student = await prisma.student.create({
       data: {
-        studentId: `STD${mockId}`,
+        studentCode: `STD${mockCode}`,
         nationalId: mockNationalId,
         name: name,
         gpax: 0.0,
-        transcriptUrl: '',
-        schoolId: defaultSchool.id,
-        // password: password, // 👈 ถ้าใน schema.prisma ของ Student มีฟิลด์ password สามารถปลดคอมเมนต์ตรงนี้ได้ครับ
+        schoolId: defaultSchool.Schoolsid, // อ้างอิง Primary Key ใหม่ของ School
       },
     })
 
@@ -37,16 +35,16 @@ export async function createUserData(formData: FormData) {
       data: {
         action: 'CREATE_STUDENT',
         details: `เพิ่มนักเรียนใหม่: ${name} (${email})`,
-        studentId: student.id,
+        studentId: student.Studentsid, // อ้างอิง Primary Key ใหม่ของ Student
       },
     })
   } else {
-    // เพิ่มอาจารย์/เจ้าหน้าที่/ผู้ดูแลระบบลงตาราง User
+    // เพิ่มอาจารย์/เจ้าหน้าที่/ผู้ดูแลระบบลงตาราง User (บทบาท: ADMIN หรือ OFFICER)
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        password: password, // 📌 บันทึก password จากฟอร์มแทนค่า Default เดิม ('Password123!')
+        password: password,
         role: roleType,
       },
     })
@@ -55,7 +53,7 @@ export async function createUserData(formData: FormData) {
       data: {
         action: 'CREATE_USER',
         details: `เพิ่มผู้ใช้งานใหม่ บทบาท: ${roleType} (${name})`,
-        userId: user.id,
+        userId: user.Usersid, // อ้างอิง Primary Key ใหม่ของ User
       },
     })
   }
@@ -66,10 +64,15 @@ export async function createUserData(formData: FormData) {
 
 export async function deleteUserData(id: string, type: 'USER' | 'STUDENT') {
   if (type === 'STUDENT') {
-    await prisma.student.delete({ where: { id } })
+    await prisma.student.delete({
+      where: { Studentsid: id }, // ลบด้วย Primary Key ใหม่
+    })
   } else {
-    await prisma.user.delete({ where: { id } })
+    await prisma.user.delete({
+      where: { Usersid: id }, // ลบด้วย Primary Key ใหม่
+    })
   }
+
   revalidatePath('/admin/users')
   revalidatePath('/admin/dashboard')
 }

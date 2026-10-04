@@ -11,13 +11,17 @@ export default async function StudentLayout({ children }: { children: React.Reac
     redirect('/login')
   }
 
+  // ค้นหาด้วย Primary Key ใหม่ (Studentsid)
   const student = await prisma.student.findUnique({
-    where: { id: studentId },
+    where: { Studentsid: studentId },
   })
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <Sidebar studentName={student?.name} studentId={student?.studentId} />
+      <Sidebar 
+        studentName={student?.name} 
+        studentId={student?.studentCode || student?.Studentsid} 
+      />
       <main className="flex-1 p-8 overflow-y-auto">
         {children}
       </main>

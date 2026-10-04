@@ -13,16 +13,16 @@ export default async function UsersPage() {
   // แปลงให้เป็นรูปแบบเดียวกันสำหรับนำไปแสดงผลใน Table
   const formattedUsers = [
     ...users.map((u) => ({
-      id: u.id,
+      id: u.Usersid, // อ้างอิง Primary Key ใหม่ของ User
       name: u.name,
       email: u.email,
       role: u.role, // ADMIN หรือ OFFICER
       type: 'USER' as const,
     })),
     ...students.map((s) => ({
-      id: s.id,
+      id: s.Studentsid, // อ้างอิง Primary Key ใหม่ของ Student
       name: s.name,
-      email: `${s.studentId}@ku.th`,
+      email: s.studentCode ? `${s.studentCode}@ku.th` : `${s.nationalId}@ku.th`, // อ้างอิง studentCode แทน studentId
       role: 'STUDENT',
       type: 'STUDENT' as const,
     })),

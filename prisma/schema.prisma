@@ -33,144 +33,203 @@ enum ApplicationStatus {
 // MODELS (8 TABLES)
 // ----------------------------------------------------
 
-// 1. D1: Users (สำหรับ กรรมการ / ผู้ดูแลระบบ)
+// 1. D1: Users (สำหรับผู้ดูแลระบบ และ อาจารย์/กรรมการ)
 model User {
-  id           String      @id @default(uuid())
-  email        String      @unique // อีเมลมหาลัย (เช่น @ku.th)
-  teacherId    String?     @unique // เลขประจำตัวอาจารย์/เจ้าหน้าที่
+  Usersid      String   @id @default(uuid()) @map("Usersid")
+  email        String   @unique
+  teacherId    String?  @unique
   password     String
   name         String
-  role         Role        @default(OFFICER)
-  
-  universityId String?     // FK เชื่อมไปตาราง University
-  university   University? @relation(fields: [universityId], references: [id])
+  role         Role     @default(OFFICER)
 
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [Universitiesid])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   auditLogs    AuditLog[]
+
+  @@map("D1_Users")
 }
 
 // 2. D2: Schools
 model School {
-  id        String    @id @default(uuid())
-  code      String    @unique // รหัสโรงเรียน 10 หลัก
+  Schoolsid String   @id @default(uuid()) @map("Schoolsid")
+  code      String   @unique
   name      String
   province  String
   students  Student[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("D2_Schools")
 }
 
-// 3. D3: Students (ข้อมูลนักเรียน และ ผลเกรดจาก OCR ปพ.1)
+// 3. D3: Students
 model Student {
-  id                 String             @id @default(uuid())
-  studentId          String             @unique // รหัสนักเรียน (ใช้ Login + เป็น Initial Password)
-  nationalId         String             @unique // เลขประจำตัวประชาชน 13 หลัก
-  name               String             // ชื่อ และนามสกุล
-  gpax               Float              // เกรดเฉลี่ยสะสมรวม
-  mathGpa            Float?             // เกรดกลุ่มสาระคณิตศาสตร์
-  sciGpa             Float?             // เกรดกลุ่มสาระวิทยาศาสตร์
-  engGpa             Float?             // เกรดกลุ่มสาระภาษาอังกฤษ
-  transcriptUrl      String             // URL ไฟล์สแกน ปพ.1
-  verificationStatus VerificationStatus @default(PENDING)
-  isFirstLogin       Boolean            @default(true) // บังคับให้เปลี่ยนรหัสผ่านเมื่อ Login ครั้งแรก
+  Studentsid         String             @id @default(uuid()) @map("Studentsid")
+  schoolId           String?
+  school             School?            @relation(fields: [schoolId], references: [Schoolsid])
 
-  schoolId           String
-  school             School             @relation(fields: [schoolId], references: [id])
+  studentCode        String?
+  nationalId         String             @unique
+  name               String
+
+  gpax               Float?
+  mathGpa            Float?
+  sciGpa             Float?
+  engGpa             Float?
+  thaiGpa            Float?
+  socialGpa          Float?
+  healthGpa          Float?
+  artGpa             Float?
+  careerGpa          Float?
+
+  verificationStatus VerificationStatus @default(PENDING)
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   tcasScores         TcasScore?
   applications       Application[]
   auditLogs          AuditLog[]
 
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  @@map("D3_Students")
 }
 
 // 4. D4: Tcas_Scores
 model TcasScore {
-  id          String   @id @default(uuid())
-  studentId   String   @unique
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  tgat        Float?
-  tpat2       Float?
-  tpat3       Float?
-  alevelMath1 Float?
-  alevelSci   Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  Tcas_Scoresid String   @id @default(uuid()) @map("Tcas_Scoresid")
+  studentId     String   @unique
+  student       Student  @relation(fields: [studentId], references: [Studentsid], onDelete: Cascade)
+
+  tgat          Float?
+  tpat1         Float?
+  tpat2         Float?
+  tpat3         Float?
+  tpat4         Float?
+  tpat5         Float?
+
+  alevelMath1   Float?
+  alevelMath2   Float?
+  alevelSci     Float?
+  alevelPhy     Float?
+  alevelChem    Float?
+  alevelBio     Float?
+  alevelSoc     Float?
+  alevelThai    Float?
+  alevelEng     Float?
+  alevelForeign Float?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("D4_Tcas_Scores")
 }
 
 // 5. D5: Universities
 model University {
-  id         String            @id @default(uuid())
-  code       String            @unique
-  name       String            // เช่น มหาวิทยาลัยเกษตรศาสตร์
-  campus     String            // เช่น วิทยาเขตบางเขน
-  faculty    String            // เช่น คณะวิศวกรรมศาสตร์
-  department String?           // ภาควิชา/สาขาวิชา (เช่น ภาควิชาพฤกษศาสตร์)
-  
-  users      User[]            // เชื่อมความสัมพันธ์กับตาราง User (อาจารย์)
-  criteria   ProgramCriteria[]
-  
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  Universitiesid String            @id @default(uuid()) @map("Universitiesid")
+  code           String
+  name           String
+  campus         String
+  faculty        String
+  department     String
+
+  users          User[]
+  criteria       ProgramCriteria[]
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("D5_Universities")
 }
 
-// 6. D6: Program_Criteria
 model ProgramCriteria {
-  id             String        @id @default(uuid())
-  programName    String        // เช่น สาขาวิชาวิทยาการคอมพิวเตอร์
-  minGpax        Float         @default(0.0)
-  minMathGpa     Float?
-  minSciGpa      Float?
-  minEngGpa      Float?
-  minTgat        Float?
-  minTpat2       Float?
-  minTpat3       Float?
-  minAlevelMath1 Float?        // คะแนนขั้นต่ำ A-Level Math 1
-  minAlevelSci   Float?        // คะแนนขั้นต่ำ A-Level Sci
-  capacity       Int           @default(0) // จำนวนที่รับ
-  isOpen         Boolean       @default(true) // เพิ่ม: สถานะเปิด/ปิดรับสมัคร (เปิดเป็น default)
-  
-  universityId   String
-  university     University    @relation(fields: [universityId], references: [id])
-  
-  applications   Application[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  Program_Criteriaid String     @id @default(uuid()) @map("Program_Criteriaid")
+  universityId       String
+  university         University @relation(fields: [universityId], references: [Universitiesid])
+  isOpen             Boolean    @default(true)
+  programName        String
+
+  // เกรดเฉลี่ยขั้นต่ำ
+  minGpax            Float?
+  minMathGpa         Float?
+  minSciGpa          Float?
+  minEngGpa          Float?
+  minThaiGpa         Float?
+  minSocialGpa       Float?
+  minHealthGpa       Float?
+  minArtGpa          Float?
+  minCareerGpa       Float?
+
+  // คะแนนสอบขั้นต่ำ (TGAT / TPAT)
+  minTgat            Float?
+  minTpat1           Float?
+  minTpat2           Float?
+  minTpat3           Float?
+  minTpat4           Float?
+  minTpat5           Float?
+
+  // คะแนนสอบขั้นต่ำ (A-Level)
+  minAlevelMath1     Float?
+  minAlevelMath2     Float?
+  minAlevelSci       Float?
+  minAlevelPhy       Float?
+  minAlevelChem      Float?
+  minAlevelBio       Float?
+  minAlevelSoc       Float?
+  minAlevelThai      Float?
+  minAlevelEng       Float?
+  minAlevelForeign   Float?
+  foreignLanguageSubject String?  // <--- เพิ่มฟิลด์นี้ระบุชื่อภาษา เช่น 'Japanese', 'Chinese'
+
+  capacity           Int
+  additionals        String?    @db.Text
+
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  applications       Application[]
+
+  @@map("D6_Program_Criteria")
 }
 
-// 7. D7: Applications (เชื่อม Student + ProgramCriteria + ผลประเมิน)
+// 7. D7: Applications
 model Application {
-  id          String            @id @default(uuid())
-  studentId   String
-  student     Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  criteriaId  String
-  criteria    ProgramCriteria   @relation(fields: [criteriaId], references: [id])
-  
-  status      ApplicationStatus @default(PENDING)
-  remark      String?           @db.Text // เหตุผลประกอบ
-  evaluatedAt DateTime?
-  
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  Applicationsid String            @id @default(uuid()) @map("Applicationsid")
+  studentId      String
+  student        Student           @relation(fields: [studentId], references: [Studentsid], onDelete: Cascade)
 
-  @@unique([studentId, criteriaId]) // สมัครสาขาเดิมซ้ำไม่ได้
+  criteriaId     String
+  criteria       ProgramCriteria   @relation(fields: [criteriaId], references: [Program_Criteriaid])
+
+  status         ApplicationStatus @default(PENDING)
+  remark         String?           @db.Text
+  evaluatedAt    DateTime?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([studentId, criteriaId])
+  @@map("D7_Applications")
 }
 
-// 8. D8: Audit_Logs
+// 8. D8: AuditLogs
 model AuditLog {
-  id        String   @id @default(uuid())
-  action    String   // เช่น "CORRECT_GRADE", "UPDATE_CRITERIA"
-  details   String   @db.Text
-  
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  
-  studentId String?
-  student   Student? @relation(fields: [studentId], references: [id])
-  
-  createdAt DateTime @default(now())
+  AuditLogsid String   @id @default(uuid()) @map("AuditLogsid")
+  action      String
+  details     String?  @db.Text
+
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [Usersid])
+
+  studentId   String?
+  student     Student? @relation(fields: [studentId], references: [Studentsid])
+
+  createdAt   DateTime @default(now())
+
+  @@map("D8_AuditLogs")
 }

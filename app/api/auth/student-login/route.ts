@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
@@ -17,33 +16,41 @@ export async function POST(request: Request) {
       where: { nationalId: nationalId },
     })
 
-    if (!student || student.studentId !== password) {
+    // ตรวจสอบรหัสนักเรียน (studentCode) กับ Password
+    if (!student || student.studentCode !== password) {
       return NextResponse.json(
         { success: false, message: 'เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }
       )
     }
 
-    // 📌 บันทึก studentId ลงใน Cookie
-    const cookieStore = await cookies()
-    cookieStore.set('student_id', student.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-    })
-
-    // 📌 ส่งข้อมูล user กลับไปให้ครบถ้วน ทั้ง id และ studentId
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
       user: {
-        id: student.id,
-        studentId: student.studentId, // 👈 ส่ง studentId กลับไปด้วย
+        id: student.Studentsid,
+        studentId: student.studentCode ?? '',
         name: student.name,
         nationalId: student.nationalId,
         role: 'student',
       },
     })
+
+    // 📌 ตัวเลือก Cookie มาตรฐาน (ตั้งอายุไว้ 1 วัน)
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 1 วัน
+    }
+
+    // 📌 ฝัง Cookie โดยใช้ ?? '' ป้องกันค่า null
+    response.cookies.set('student_id', student.Studentsid, cookieOptions)
+    response.cookies.set('userId', student.Studentsid, cookieOptions)
+    response.cookies.set('studentCode', student.studentCode ?? '', cookieOptions)
+    response.cookies.set('nationalId', student.nationalId ?? '', cookieOptions)
+
+    return response
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json(

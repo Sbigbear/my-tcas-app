@@ -1,23 +1,39 @@
 import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function TeacherDashboard() {
   const cookieStore = await cookies()
-  const teacherId = cookieStore.get('teacher_id')?.value
+  const teacherId = cookieStore.get('teacher_id')?.value || cookieStore.get('userId')?.value
+
+  if (!teacherId) {
+    redirect('/login')
+  }
 
   // ดึงข้อมูลอาจารย์ที่ Login อยู่
   const teacher = await prisma.user.findUnique({
-    where: { id: teacherId || '' }
+    where: { Usersid: teacherId },
   })
 
-  // นับจำนวนสถิติผู้สมัครจริงจาก Schema (PENDING และ ELIGIBLE)
-  const totalApplicants = await prisma.application.count()
+  if (!teacher) {
+    redirect('/login')
+  }
+
+  // เงื่อนไขสำหรับกรองผู้สมัครเฉพาะสังกัด (universityId) ของอาจารย์ท่านนี้
+  const whereClause = teacher.universityId
+    ? { criteria: { universityId: teacher.universityId } }
+    : { Applicationsid: 'no-match' }
+
+  // นับจำนวนสถิติผู้สมัครเฉพาะสังกัดอาจารย์
+  const totalApplicants = await prisma.application.count({
+    where: whereClause,
+  })
   const pendingApplicants = await prisma.application.count({
-    where: { status: 'PENDING' }
+    where: { ...whereClause, status: 'PENDING' },
   })
   const eligibleApplicants = await prisma.application.count({
-    where: { status: 'ELIGIBLE' }
+    where: { ...whereClause, status: 'ELIGIBLE' },
   })
 
   return (
@@ -28,7 +44,7 @@ export default async function TeacherDashboard() {
       <div className="bg-[#07382B] text-white p-8 rounded-2xl flex justify-between items-center shadow-sm">
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold">
-            สวัสดี, {teacher?.name || 'อาจารย์'}
+            สวัสดี, {teacher.name || 'อาจารย์'}
           </h2>
           <p className="text-emerald-200 text-sm">
             มีผู้สมัคร {pendingApplicants} รายที่รอการตรวจสอบคุณสมบัติและเอกสารประกอบ

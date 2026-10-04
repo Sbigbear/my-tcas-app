@@ -13,22 +13,22 @@ export async function POST(request: Request) {
       )
     }
 
-    // 📌 เพิ่มการเช็ก role: ต้องเป็น TEACHER หรือ OFFICER เท่านั้น
+    // 📌 ค้นหาอาจารย์/เจ้าหน้าที่จาก email
     const teacher = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: username },
-          { teacherId: username }
-        ],
+        email: username,
         role: {
-          in: ['OFFICER']
-        }
-      }
+          in: ['OFFICER'],
+        },
+      },
     })
 
     if (!teacher || teacher.password !== password) {
       return NextResponse.json(
-        { success: false, message: 'บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานในส่วนของอาจารย์ หรือรหัสผ่านไม่ถูกต้อง' },
+        {
+          success: false,
+          message: 'บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานในส่วนของอาจารย์ หรือรหัสผ่านไม่ถูกต้อง',
+        },
         { status: 401 }
       )
     }
@@ -37,27 +37,32 @@ export async function POST(request: Request) {
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
       user: {
-        id: teacher.id,
+        id: teacher.Usersid,
         name: teacher.name,
         email: teacher.email,
-        role: teacher.role
-      }
+        role: teacher.role,
+      },
     })
 
-    response.cookies.set('teacher_id', teacher.id, {
+    // 📌 บันทึก Cookie ให้ครอบคลุมทุกคีย์เพื่อให้ Server อ่านค่าได้ง่าย
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24
-    })
+      maxAge: 60 * 60 * 24, // 1 วัน
+    }
+
+    response.cookies.set('teacher_id', teacher.Usersid, cookieOptions)
+    response.cookies.set('userId', teacher.Usersid, cookieOptions)
+    response.cookies.set('email', teacher.email, cookieOptions)
+    response.cookies.set('user_email', teacher.email, cookieOptions)
 
     return response
-
   } catch (error: any) {
     console.error('Teacher Login Error:', error)
     return NextResponse.json(
       { success: false, message: `เกิดข้อผิดพลาด: ${error?.message || 'Server Error'}` },
       { status: 500 }
-    );
+    )
   }
 }

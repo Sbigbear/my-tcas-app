@@ -11,17 +11,23 @@ export default async function TeacherLayout({ children }: { children: React.Reac
     redirect('/login')
   }
 
-  // ค้นหาอาจารย์จากฐานข้อมูล
+  // ค้นหาอาจารย์ด้วย Primary Key ตัวใหม่ (Usersid)
   const teacher = await prisma.user.findUnique({
-    where: { id: teacherId }
+    where: { Usersid: teacherId },
   })
+
+  if (!teacher) {
+    redirect('/login')
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <TeacherSidebar teacherName={teacher?.name} teacherEmail={teacher?.email} />
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <span className="text-xs font-semibold text-slate-400">ระบบวิเคราะห์คุณสมบัติ TCAS</span>
+          <span className="text-xs font-semibold text-slate-400">
+            ระบบวิเคราะห์คุณสมบัติ TCAS
+          </span>
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>

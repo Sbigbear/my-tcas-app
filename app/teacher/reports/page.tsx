@@ -1,12 +1,33 @@
 import prisma from '@/lib/prisma'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export default async function ReportsPage() {
-  const total = await prisma.application.count()
+  const cookieStore = await cookies()
+  const teacherId = cookieStore.get('teacher_id')?.value || cookieStore.get('userId')?.value
+
+  if (!teacherId) {
+    redirect('/login')
+  }
+
+  const teacher = await prisma.user.findUnique({
+    where: { Usersid: teacherId },
+    select: { universityId: true },
+  })
+
+  // เงื่อนไขสำหรับกรองผู้สมัครเฉพาะสังกัดอาจารย์
+  const whereClause = teacher?.universityId
+    ? { criteria: { universityId: teacher.universityId } }
+    : { Applicationsid: 'no-match' }
+
+  const total = await prisma.application.count({
+    where: whereClause,
+  })
   const eligible = await prisma.application.count({
-    where: { status: 'ELIGIBLE' },
+    where: { ...whereClause, status: 'ELIGIBLE' },
   })
   const pending = await prisma.application.count({
-    where: { status: 'PENDING' },
+    where: { ...whereClause, status: 'PENDING' },
   })
 
   return (

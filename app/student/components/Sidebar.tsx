@@ -13,13 +13,17 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
   const router = useRouter()
 
   const handleLogout = () => {
+    // ลบข้อมูลการลงชื่อเข้าใช้จาก LocalStorage (ถ้ามี)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('studentId')
+    }
     router.push('/login')
   }
 
+  // ลบเมนู "ค้นหาหลักสูตร" ออกแล้ว เหลือเฉพาะเมนูดูข้อมูล
   const navItems = [
     { label: 'ภาพรวม', href: '/student/dashboard' },
-    { label: 'ค้นหาหลักสูตร', href: '/student/search' },
-    { label: 'สถานะการสมัคร', href: '/student/applications' }, // 📌 เมนูใหม่ที่เพิ่มเข้ามา
+    { label: 'สถานะการสมัคร', href: '/student/applications' },
     { label: 'คะแนนของฉัน', href: '/student/scores' },
     { label: 'เอกสารการศึกษา', href: '/student/documents' },
   ]
