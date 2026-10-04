@@ -1,16 +1,15 @@
 import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
+import AddCourseModal from './AddCourseModal' 
 
-// ฟังก์ชันค้นหาข้อมูลอาจารย์จาก Cookie (รองรับทั้ง teacher_id, userId และ email)
+// ฟังก์ชันค้นหาข้อมูลอาจารย์จาก Cookie (โค้ดเดิมของคุณ 100%)
 async function getLoggedInUser() {
   try {
     const cookieStore = await cookies()
 
-    // 1. ดึง ID หรือ Email จาก Cookie โดยตรง
     const teacherId = cookieStore.get('teacher_id')?.value || cookieStore.get('userId')?.value
     const userEmail = cookieStore.get('email')?.value || cookieStore.get('user_email')?.value
 
-    // 2. ถ้ามี teacherId ให้ค้นจาก Usersid ก่อนทันที (แม่นยำที่สุด)
     if (teacherId) {
       const user = await prisma.user.findUnique({
         where: { Usersid: teacherId },
@@ -19,7 +18,6 @@ async function getLoggedInUser() {
       if (user) return user
     }
 
-    // 3. ถ้าไม่มี teacherId ให้ค้นด้วย email
     if (userEmail) {
       const user = await prisma.user.findFirst({
         where: { email: userEmail },
@@ -28,7 +26,6 @@ async function getLoggedInUser() {
       if (user) return user
     }
 
-    // 4. Fallback: สแกนกวาดหาอีเมลใน Cookie ทุกตัวเผื่อกรณี Cookie ถูกเข้ารหัส
     const allCookies = cookieStore.getAll()
     for (const c of allCookies) {
       try {
@@ -57,7 +54,6 @@ async function getLoggedInUser() {
 export default async function TeacherCriteriaPage() {
   const user = await getLoggedInUser()
 
-  // ค้นหาเกณฑ์ตาม universityId ของผู้ใช้ที่ดึงมาได้
   const criteriaList = user?.universityId
     ? await prisma.programCriteria.findMany({
         where: { universityId: user.universityId },
@@ -76,11 +72,12 @@ export default async function TeacherCriteriaPage() {
             กำหนดรอบรับสมัคร จำนวนที่รับ และเกณฑ์คุณสมบัติขั้นต่ำ
           </p>
         </div>
-        <button className="bg-[#0A6B50] hover:bg-[#07382B] text-white px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1 shadow-sm">
-          + เพิ่มหลักสูตรใหม่
-        </button>
+        
+        {/* ❌ ปุ่มเดิมที่เป็น HTML เปล่าๆ เปลี่ยนเป็น Component ปุ่มที่มี Modal กดได้ */}
+        <AddCourseModal universityId={user?.universityId ?? null} />
       </div>
 
+      {/* โค้ดแสดงผลการ์ดเดิมของคุณทั้งหมด 100% */}
       <div className="space-y-3">
         {!user ? (
           <div className="p-8 text-center bg-red-50 rounded-2xl border border-red-200 flex flex-col items-center justify-center">
