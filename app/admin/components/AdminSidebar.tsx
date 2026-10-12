@@ -35,19 +35,16 @@ export default function AdminSidebar() {
     { name: 'ประวัติการทำงาน', href: '/admin/logs', icon: Clock },
   ]
 
-  // ดึงตัวอักษรแรกมาทำเป็น Avatar Logo เช่น "ผ" หรือ "A"
+  // ดึงตัวอักษรแรกมาทำเป็น Avatar Logo
   const avatarText = userName.charAt(0).toUpperCase()
 
   return (
     <aside className="w-64 bg-[#063b2c] text-white flex flex-col justify-between p-6 min-h-screen">
       <div>
+        {/* โลโก้ KU แบบไม่มีชื่อแบรนด์ */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center font-bold text-lg">
             KU
-          </div>
-          <div>
-            <h1 className="font-bold text-lg leading-tight">KU Pathway</h1>
-            <p className="text-xs text-emerald-200/70">TCAS Eligibility</p>
           </div>
         </div>
 
@@ -87,7 +84,7 @@ export default function AdminSidebar() {
         </div>
         <button 
           onClick={handleLogout}
-          className="text-emerald-200 hover:text-white flex-shrink-0 p-1"
+          className="text-emerald-200 hover:text-white flex-shrink-0 p-1 cursor-pointer"
           title="ออกจากระบบ"
         >
           <LogOut className="w-4 h-4" />

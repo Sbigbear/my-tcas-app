@@ -58,17 +58,17 @@ export default function LogsClient({ initialLogs }: LogsClientProps) {
           />
         </div>
 
+        {/* ตัดปุ่ม 'เข้าสู่ระบบ' ออก เหลือเฉพาะหมวดที่มีข้อมูลจริง */}
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto">
           {[
             { key: 'all', label: 'ทั้งหมด' },
-            { key: 'auth', label: 'เข้าสู่ระบบ' },
-            { key: 'course', label: 'หลักสูตร' },
             { key: 'user', label: 'ผู้ใช้งาน' },
+            { key: 'course', label: 'หลักสูตร' },
           ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setFilterType(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                 filterType === tab.key
                   ? 'bg-[#063b2c] text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'

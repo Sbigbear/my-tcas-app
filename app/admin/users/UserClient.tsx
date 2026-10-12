@@ -45,7 +45,7 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
         </div>
         <button
           onClick={() => setIsOpen(true)}
-          className="px-4 py-2 bg-[#07382B] text-white text-sm font-bold rounded-xl hover:bg-[#05281f] transition"
+          className="px-4 py-2 bg-[#07382B] text-white text-sm font-bold rounded-xl hover:bg-[#05281f] transition cursor-pointer"
         >
           + เพิ่มผู้ใช้งาน
         </button>
@@ -95,7 +95,7 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
                         await deleteUserData(user.id, user.type)
                       }
                     }}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 cursor-pointer"
                   >
                     🗑️
                   </button>
@@ -106,12 +106,13 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
         </table>
       </div>
 
+      {/* Modal เพิ่มผู้ใช้งาน */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md p-6 rounded-2xl space-y-4 shadow-xl">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-900">เพิ่มผู้ใช้งานใหม่</h3>
-              <button onClick={() => setIsOpen(false)} className="text-slate-400 text-xl">
+              <button onClick={() => setIsOpen(false)} className="text-slate-400 text-xl cursor-pointer">
                 ✕
               </button>
             </div>
@@ -145,7 +146,6 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
                 />
               </div>
 
-              {/* 📌 เพิ่มช่องกรอก Password */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">รหัสผ่าน</label>
                 <input
@@ -159,12 +159,13 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">บทบาทเริ่มต้น</label>
+                {/* เอาเฉพาะ option STUDENT ออก เหลือแค่ OFFICER และ ADMIN */}
                 <select
                   name="role"
-                  className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B] bg-white"
+                  defaultValue="OFFICER"
+                  className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B] bg-white cursor-pointer"
                 >
-                  <option value="STUDENT">นักเรียน</option>
-                  <option value="OFFICER">อาจารย์ / เจ้าหน้าที่</option>
+                  <option value="OFFICER">อาจารย์</option>
                   <option value="ADMIN">ผู้ดูแลระบบ</option>
                 </select>
               </div>
@@ -173,13 +174,13 @@ export default function UserListClient({ initialUsers }: { initialUsers: Formatt
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-semibold"
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-semibold cursor-pointer"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#07382B] text-white rounded-xl font-semibold hover:bg-[#05281f]"
+                  className="px-5 py-2 bg-[#07382B] text-white rounded-xl font-semibold hover:bg-[#05281f] cursor-pointer"
                 >
                   บันทึกข้อมูล
                 </button>

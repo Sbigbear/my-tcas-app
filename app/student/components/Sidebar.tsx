@@ -20,24 +20,20 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
     router.push('/login')
   }
 
-  // ลบเมนู "ค้นหาหลักสูตร" ออกแล้ว เหลือเฉพาะเมนูดูข้อมูล
+  // รายการเมนูสำหรับนักเรียน (ลบเอกสารการศึกษาออกแล้ว)
   const navItems = [
     { label: 'ภาพรวม', href: '/student/dashboard' },
     { label: 'สถานะการสมัคร', href: '/student/applications' },
     { label: 'คะแนนของฉัน', href: '/student/scores' },
-    { label: 'เอกสารการศึกษา', href: '/student/documents' },
   ]
 
   return (
     <aside className="w-64 bg-[#07382B] text-white flex flex-col justify-between p-4 flex-shrink-0 min-h-screen">
       <div>
+        {/* Header Logo */}
         <div className="flex items-center gap-3 mb-8 px-2 pt-2">
-          <div className="w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-white shadow-sm">
             KU
-          </div>
-          <div>
-            <h1 className="font-bold text-lg leading-none">KU Pathway</h1>
-            <span className="text-xs text-emerald-400">TCAS Eligibility</span>
           </div>
         </div>
 
@@ -69,7 +65,7 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
         <button
           onClick={handleLogout}
           title="ออกจากระบบ"
-          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition"
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path

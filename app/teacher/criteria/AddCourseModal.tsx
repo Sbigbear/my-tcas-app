@@ -484,7 +484,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                 >
                   {isLoading ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> กำลังบันทึก...
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> กำลังบันทึก
                     </>
                   ) : (
                     <>

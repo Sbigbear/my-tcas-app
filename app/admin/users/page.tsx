@@ -10,19 +10,19 @@ export default async function UsersPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // แปลงให้เป็นรูปแบบเดียวกันสำหรับนำไปแสดงผลใน Table
+  // รวมรายชื่อผู้ใช้งานและนักเรียนนำมาแสดงในตาราง
   const formattedUsers = [
     ...users.map((u) => ({
-      id: u.Usersid, // อ้างอิง Primary Key ใหม่ของ User
+      id: u.Usersid,
       name: u.name,
       email: u.email,
       role: u.role, // ADMIN หรือ OFFICER
       type: 'USER' as const,
     })),
     ...students.map((s) => ({
-      id: s.Studentsid, // อ้างอิง Primary Key ใหม่ของ Student
+      id: s.Studentsid,
       name: s.name,
-      email: s.studentCode ? `${s.studentCode}@ku.th` : `${s.nationalId}@ku.th`, // อ้างอิง studentCode แทน studentId
+      email: s.studentCode ? `${s.studentCode}@ku.th` : `${s.nationalId}@ku.th`,
       role: 'STUDENT',
       type: 'STUDENT' as const,
     })),

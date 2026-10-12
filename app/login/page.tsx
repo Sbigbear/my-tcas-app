@@ -17,9 +17,9 @@ export default function LoginPage() {
     switch (role) {
       case 'student':
         return {
-          title: 'ตรวจสอบคะแนนและโอกาสเข้าศึกษา',
+          title: 'ตรวจสอบคะแนน',
           subtitle: 'ดูข้อมูลผลการเรียน คะแนนสอบ และหลักสูตรที่ผ่านเกณฑ์',
-          userLabel: 'เลขประจำตัวประชาชน 13 หลัก หรือ รหัสนิสิต',
+          userLabel: 'เลขประจำตัวประชาชน 13 หลัก ',
           placeholder: '1103700123456',
         }
       case 'teacher':
@@ -27,11 +27,11 @@ export default function LoginPage() {
           title: 'ตรวจสอบคุณสมบัติผู้สมัคร',
           subtitle: 'ติดตามผู้สมัคร ตรวจสอบหลักฐาน และจัดการเกณฑ์หลักสูตร',
           userLabel: 'บัญชีบุคลากรมหาวิทยาลัย (อีเมล/ไอดี)',
-          placeholder: 'sasin.t@ku.th',
+          placeholder: 'teacher.t@ku.th',
         }
       case 'admin':
         return {
-          title: 'บริหารจัดการระบบ TCAS',
+          title: 'จัดการระบบ TCAS',
           subtitle: 'จัดการผู้ใช้งาน สิทธิ์การเข้าถึง และประวัติการทำงาน',
           userLabel: 'บัญชีผู้ดูแลระบบ',
           placeholder: 'admin.demo',
@@ -102,37 +102,29 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen bg-slate-100 text-slate-900">
-      {/* ฝั่งซ้าย: KU Pathway Banner */}
+      {/* ฝั่งซ้าย: Banner */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#07382B] text-white p-12 flex-col justify-between relative overflow-hidden">
+        
+        {/* Header Logo */}
         <div className="flex items-center gap-3 z-10">
-          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-white">
+          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-white shadow-sm">
             KU
-          </div>
-          <div>
-            <h1 className="font-bold text-xl leading-none text-white">KU Pathway</h1>
-            <span className="text-xs text-emerald-400">TCAS Eligibility System</span>
           </div>
         </div>
 
-        <div className="space-y-6 z-10 my-auto">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-medium">
-            ระบบสารสนเทศเพื่อการคัดเลือกที่แม่นยำ
-          </span>
-          <h2 className="text-4xl font-extrabold leading-tight text-white">
-            เชื่อมโยงข้อมูลจริง<br />วิเคราะห์ทุกโอกาส
+        {/* Banner Title Heading */}
+        <div className="space-y-4 z-10 my-auto max-w-xl">
+          <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-snug tracking-tight">
+            ระบบสารสนเทศวิเคราะห์และตรวจสอบคุณสมบัติทางวิชาการ
           </h2>
-          <p className="text-slate-300 text-sm max-w-md">
-            ตรวจสอบคุณสมบัติทางวิชาการโดยอัตโนมัติ ด้วยข้อมูลที่ยืนยันจากโรงเรียนและระบบ TCAS
+          <p className="text-lg xl:text-xl font-medium text-emerald-100/90 leading-relaxed">
+            ของผู้สมัครเข้าศึกษาต่อ มหาวิทยาลัยเกษตรศาสตร์ ในระบบ TCAS
           </p>
         </div>
 
-        <div className="flex items-center gap-6 text-xs text-slate-300 z-10">
-          <div className="flex items-center gap-1.5">
-            <span className="text-emerald-400">✓</span> ข้อมูลผ่านการยืนยัน
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-emerald-400">✓</span> แบ่งสิทธิ์ตามบทบาท
-          </div>
+        {/* Footer Subtext */}
+        <div className="z-10 text-xs text-emerald-200/60">
+          Kasetsart University Admissions System
         </div>
       </div>
 
@@ -149,7 +141,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setRole('student'); setErrorMsg(''); }}
-              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
                 role === 'student'
                   ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
@@ -164,7 +156,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setRole('teacher'); setErrorMsg(''); }}
-              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
                 role === 'teacher'
                   ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
@@ -179,7 +171,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setRole('admin'); setErrorMsg(''); }}
-              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
                 role === 'admin'
                   ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
@@ -247,7 +239,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs text-slate-500">
-            ระบบต้นแบบสำหรับมหาวิทยาลัยเกษตรศาสตร์
+            ระบบสำหรับมหาวิทยาลัยเกษตรศาสตร์
           </p>
         </div>
       </div>

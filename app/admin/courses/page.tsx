@@ -4,15 +4,15 @@ import CourseClient from './CourseClient'
 export default async function CoursesPage() {
   try {
     const courses = await prisma.programCriteria.findMany({
+      include: { university: true }, // ดึงข้อมูลความสัมพันธ์ของมหาวิทยาลัยเพื่อเอาชื่อสาขา (department)
       orderBy: { createdAt: 'desc' },
     })
 
     const formattedCourses = courses.map((c: any) => ({
       id: c.Program_Criteriaid || c.id,
       programName: c.programName || c.name || 'ไม่ระบุชื่อหลักสูตร',
-      faculty: c.faculty || 'ไม่ระบุคณะ',
+      department: c.university?.department || c.department || 'ไม่ระบุสาขา',
       minGpax: c.minGpax ?? c.gpax ?? '-',
-      round: c.round ?? '1',
       quota: c.quota ?? c.capacity ?? 0,
     }))
 

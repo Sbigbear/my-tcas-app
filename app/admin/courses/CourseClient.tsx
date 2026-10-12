@@ -7,9 +7,8 @@ import { BookOpen, Search, Trash2, AlertTriangle, RefreshCw } from 'lucide-react
 export interface CourseItem {
   id: string
   programName: string
-  faculty: string
+  department: string
   minGpax: string | number
-  round: string | number
   quota: number
 }
 
@@ -24,11 +23,11 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // ระบบค้นหาหลักสูตร
+  // ระบบค้นหาหลักสูตร (ค้นหาจากชื่อหลักสูตร หรือ ชื่อสาขา)
   const filteredCourses = courses.filter(
     (c) =>
       c.programName.toLowerCase().includes(search.toLowerCase()) ||
-      c.faculty.toLowerCase().includes(search.toLowerCase())
+      c.department.toLowerCase().includes(search.toLowerCase())
   )
 
   // ฟังก์ชันลบหลักสูตร
@@ -67,7 +66,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
           <BookOpen className="w-6 h-6 text-[#063b2c]" /> จัดการหลักสูตร
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          กำหนดรอบรับสมัคร จำนวนที่รับ และเกณฑ์คุณสมบัติขั้นต่ำของแต่ละหลักสูตร
+          กำหนดจำนวนที่รับ และเกณฑ์คุณสมบัติขั้นต่ำของแต่ละหลักสูตร
         </p>
       </div>
 
@@ -77,7 +76,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="ค้นหาชื่อหลักสูตร หรือคณะ..."
+            placeholder="ค้นหาชื่อหลักสูตร หรือสาขา..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#063b2c] focus:bg-white text-slate-800 placeholder:text-slate-400"
@@ -91,8 +90,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-semibold">
-                <th className="py-3 px-4">ชื่อหลักสูตร / คณะ</th>
-                <th className="py-3 px-4 text-center">รอบรับสมัคร</th>
+                <th className="py-3 px-4">ชื่อหลักสูตร / สาขา</th>
                 <th className="py-3 px-4 text-center">GPAX ขั้นต่ำ</th>
                 <th className="py-3 px-4 text-center">จำนวนที่รับ</th>
                 <th className="py-3 px-4 text-right">จัดการ</th>
@@ -104,12 +102,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
                   <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="font-semibold text-slate-800">{c.programName}</div>
-                      <div className="text-xs text-slate-400">{c.faculty}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="bg-emerald-50 text-[#063b2c] text-xs font-semibold px-2.5 py-1 rounded-lg">
-                        รอบที่ {c.round}
-                      </span>
+                      <div className="text-xs text-slate-400">{c.department}</div>
                     </td>
                     <td className="py-3.5 px-4 text-center font-medium text-slate-700">
                       {c.minGpax}
@@ -120,7 +113,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => setSelectedCourse(c)}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         title="ลบหลักสูตร"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -130,7 +123,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 text-sm">
+                  <td colSpan={4} className="py-12 text-center text-slate-400 text-sm">
                     ยังไม่มีหลักสูตรในระบบ
                   </td>
                 </tr>
@@ -161,14 +154,14 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
               <button
                 disabled={isDeleting}
                 onClick={() => setSelectedCourse(null)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 disabled={isDeleting}
                 onClick={handleDelete}
-                className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
               >
                 {isDeleting && <RefreshCw className="w-4 h-4 animate-spin" />}
                 ยืนยันลบ

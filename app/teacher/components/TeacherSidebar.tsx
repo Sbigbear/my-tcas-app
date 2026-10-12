@@ -27,13 +27,10 @@ export default function TeacherSidebar({ teacherName, teacherEmail }: TeacherSid
   return (
     <aside className="w-64 bg-[#07382B] text-white flex flex-col justify-between p-4 flex-shrink-0 min-h-screen">
       <div>
+        {/* Header Logo */}
         <div className="flex items-center gap-3 mb-8 px-2 pt-2">
-          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-white shadow-sm">
             KU
-          </div>
-          <div>
-            <h1 className="font-bold text-lg leading-none text-white">KU Pathway</h1>
-            <span className="text-xs text-emerald-400">TCAS Eligibility</span>
           </div>
         </div>
 
@@ -78,7 +75,7 @@ export default function TeacherSidebar({ teacherName, teacherEmail }: TeacherSid
         <button
           onClick={handleLogout}
           title="ออกจากระบบ"
-          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition"
+          className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
