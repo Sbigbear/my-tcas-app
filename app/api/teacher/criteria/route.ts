@@ -17,7 +17,6 @@ export async function GET(request: Request) {
     if (!universityId) {
       const cookieStore = await cookies()
       
-      // 📌 ปรับให้เช็ค Cookie ครอบคลุมทั้ง email, user_email, userId, teacher_id
       let userEmail = cookieStore.get('email')?.value || cookieStore.get('user_email')?.value
       let userId = cookieStore.get('userId')?.value || cookieStore.get('teacher_id')?.value
       const token = cookieStore.get('token')?.value
@@ -76,13 +75,53 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!body.programName) {
+      return NextResponse.json(
+        { success: false, message: 'กรุณาระบุชื่อหลักสูตร/โครงการ' },
+        { status: 400 }
+      )
+    }
+
+    // 📌 อ่านค่าไอดีจาก Input ที่ผู้ใช้พิมพ์เข้ามา
+    let criteriaId = body.Program_Criteriaid || body.criteriaId || ''
+    criteriaId = typeof criteriaId === 'string' ? criteriaId.trim() : ''
+
+    // 📌 กรณีถ้าผู้ใช้ปล่อยว่างไว้ ไม่ได้พิมพ์รหัสมา -> ระบบจะรัน crit-027 ให้อัตโนมัติ
+    if (!criteriaId) {
+      const allCriteria = await prisma.programCriteria.findMany({
+        where: {
+          Program_Criteriaid: {
+            startsWith: 'crit-',
+          },
+        },
+        select: {
+          Program_Criteriaid: true,
+        },
+      })
+
+      const numbers = allCriteria
+        .map((item) => {
+          const numStr = item.Program_Criteriaid.replace('crit-', '')
+          const parsed = parseInt(numStr, 10)
+          return isNaN(parsed) ? null : parsed
+        })
+        .filter((num): num is number => num !== null)
+
+      const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0
+      const nextNum = maxNum + 1
+      criteriaId = `crit-${String(nextNum).padStart(3, '0')}`
+    }
+    // 📌 หากพิมพ์ไอดีเข้ามาเอง (เช่น QH800-67) จะถูกใช้เป็น Program_Criteriaid โดยตรง ไม่ถูกดัดแปลงใดๆ
+
     const newCriteria = await prisma.programCriteria.create({
       data: {
+        Program_Criteriaid: criteriaId,
         universityId: body.universityId,
         programName: body.programName,
         capacity: toNumber(body.capacity) ?? 0,
-        minGpax: toNumber(body.minGpax),
         isOpen: body.isOpen ?? true,
+        additionals: body.additionals || null,
+        minGpax: toNumber(body.minGpax),
         minMathGpa: toNumber(body.minMathGpa),
         minSciGpa: toNumber(body.minSciGpa),
         minEngGpa: toNumber(body.minEngGpa),
@@ -112,10 +151,10 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({ success: true, data: newCriteria })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating criteria:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to create criteria' },
+      { success: false, message: error?.message || 'Failed to create criteria' },
       { status: 500 }
     )
   }
