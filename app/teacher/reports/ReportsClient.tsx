@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Printer, Search, CheckCircle, XCircle, AlertCircle, Users } from 'lucide-react'
+import { Printer, Search, CheckCircle, XCircle, Users } from 'lucide-react'
 
 export interface ReportApplication {
   id: string
@@ -42,7 +42,7 @@ export default function ReportsClient({
   // คำนวณจำนวนแต่ละหมวด
   const totalCount = applications.length
   const eligibleCount = applications.filter((a) => a.isEligible && a.status !== 'CANCELLED').length
-  const pendingOrFailedCount = applications.filter((a) => !a.isEligible || a.status === 'PENDING').length
+  const ineligibleCount = applications.filter((a) => !a.isEligible || a.status === 'CANCELLED').length
 
   // กรองข้อมูลผู้สมัครตามการค้นหาและฟิลเตอร์
   const filteredApps = applications.filter((app) => {
@@ -56,7 +56,7 @@ export default function ReportsClient({
       return app.isEligible && app.status !== 'CANCELLED'
     }
     if (filterType === 'INELIGIBLE') {
-      return !app.isEligible || app.status === 'PENDING'
+      return !app.isEligible || app.status === 'CANCELLED'
     }
 
     return true
@@ -75,7 +75,7 @@ export default function ReportsClient({
       case 'ELIGIBLE':
         return 'รายงานรายชื่อผู้สมัครที่ผ่านเกณฑ์คุณสมบัติ (Eligible)'
       case 'INELIGIBLE':
-        return 'รายงานรายชื่อผู้สมัครที่ไม่ผ่านเกณฑ์ / รอตรวจสอบ'
+        return 'รายงานรายชื่อผู้สมัครที่ไม่ผ่านเกณฑ์คุณสมบัติ (Ineligible)'
       default:
         return 'รายงานสรุปรายชื่อผู้สมัครทั้งหมด'
     }
@@ -154,15 +154,15 @@ export default function ReportsClient({
 
         <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition">
           <div className="flex items-center justify-between">
-            <p className="font-bold text-slate-800 text-sm">ไม่ผ่านเกณฑ์ / รอตรวจสอบ</p>
+            <p className="font-bold text-slate-800 text-sm">ไม่ผ่านเกณฑ์ (Ineligible)</p>
             <XCircle className="w-5 h-5 text-rose-500" />
           </div>
-          <p className="text-4xl font-black text-rose-600">{pendingOrFailedCount} <span className="text-sm font-normal text-slate-500">ราย</span></p>
+          <p className="text-4xl font-black text-rose-600">{ineligibleCount} <span className="text-sm font-normal text-slate-500">ราย</span></p>
           <button
             onClick={() => handlePrint('INELIGIBLE')}
             className="flex items-center gap-1.5 text-xs text-rose-700 font-semibold hover:underline cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5" /> ส่งออก PDF (ไม่ผ่าน/รอตรวจสอบ)
+            <Printer className="w-3.5 h-3.5" /> ส่งออก PDF (เฉพาะผู้ไม่ผ่านเกณฑ์)
           </button>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function ReportsClient({
               filterType === 'INELIGIBLE' ? 'bg-rose-700 text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
-            ไม่ผ่าน/รอตรวจสอบ ({pendingOrFailedCount})
+            ไม่ผ่านเกณฑ์ ({ineligibleCount})
           </button>
         </div>
       </div>
@@ -216,7 +216,7 @@ export default function ReportsClient({
             <div>
               <h1 className="text-lg font-bold text-slate-900">{universityName}</h1>
               <p className="text-xs text-slate-700">
-                {facultyName} - {departmentName}
+                {facultyName} {departmentName}
               </p>
               <h2 className="text-base font-bold text-[#07382B] mt-2">{getReportTitle()}</h2>
             </div>
@@ -235,8 +235,6 @@ export default function ReportsClient({
                 <th className="py-3 px-3 text-center w-12">ลำดับ</th>
                 <th className="py-3 px-4">ชื่อ-นามสกุล</th>
                 <th className="py-3 px-4">หลักสูตร / โครงการ</th>
-                <th className="py-3 px-3 text-center">GPAX</th>
-                <th className="py-3 px-3 text-center">TGAT</th>
                 <th className="py-3 px-3 text-center">ผลการวิเคราะห์</th>
                 <th className="py-3 px-4">หมายเหตุ / เหตุผลที่ไม่ผ่านเกณฑ์</th>
               </tr>
@@ -248,8 +246,6 @@ export default function ReportsClient({
                     <td className="py-3 px-3 text-center font-medium text-slate-500">{index + 1}</td>
                     <td className="py-3 px-4 font-bold text-slate-800">{app.studentName}</td>
                     <td className="py-3 px-4 text-slate-600">{app.programName}</td>
-                    <td className="py-3 px-3 text-center font-semibold text-slate-800">{app.gpax}</td>
-                    <td className="py-3 px-3 text-center font-semibold text-slate-800">{app.tgat}</td>
                     <td className="py-3 px-3 text-center">
                       {app.isEligible && app.status !== 'CANCELLED' ? (
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -274,7 +270,7 @@ export default function ReportsClient({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={5} className="py-8 text-center text-slate-400">
                     ไม่พบข้อมูลผู้สมัครในหมวดหมู่นี้
                   </td>
                 </tr>

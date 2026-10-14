@@ -25,15 +25,15 @@ export default async function TeacherDashboard() {
     ? { criteria: { universityId: teacher.universityId } }
     : { Applicationsid: 'no-match' }
 
-  // นับจำนวนสถิติผู้สมัครเฉพาะสังกัดอาจารย์
+  // นับจำนวนสถิติผู้สมัครแยกตามสถานะการคัดกรอง
   const totalApplicants = await prisma.application.count({
     where: whereClause,
   })
-  const pendingApplicants = await prisma.application.count({
-    where: { ...whereClause, status: 'PENDING' },
-  })
   const eligibleApplicants = await prisma.application.count({
     where: { ...whereClause, status: 'ELIGIBLE' },
+  })
+  const ineligibleApplicants = await prisma.application.count({
+    where: { ...whereClause, status: 'INELIGIBLE' },
   })
 
   return (
@@ -47,7 +47,7 @@ export default async function TeacherDashboard() {
             สวัสดี, {teacher.name || 'อาจารย์'}
           </h2>
           <p className="text-emerald-200 text-sm">
-            มีผู้สมัคร {pendingApplicants} รายที่รอการตรวจสอบคุณสมบัติและเอกสารประกอบ
+            สรุปผลการคัดกรองคุณสมบัติผู้สมัครเข้าศึกษาต่อ TCAS ล่าสุด
           </p>
         </div>
         <Link
@@ -58,9 +58,9 @@ export default async function TeacherDashboard() {
         </Link>
       </div>
 
-      {/* สถิติหลัก */}
+      {/* สถิติหลัก (ผู้สมัครทั้งหมด / ผ่านเกณฑ์ / ไม่ผ่านเกณฑ์) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center shadow-sm">
           <div>
             <p className="text-xs font-semibold text-slate-500">ผู้สมัครทั้งหมด</p>
             <p className="text-3xl font-black text-slate-900 mt-1">{totalApplicants}</p>
@@ -68,20 +68,20 @@ export default async function TeacherDashboard() {
           <div className="p-3 bg-slate-100 text-slate-700 rounded-xl text-xl">👤</div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center">
-          <div>
-            <p className="text-xs font-semibold text-slate-500">รอตรวจสอบ</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{pendingApplicants}</p>
-          </div>
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl text-xl">🕒</div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center shadow-sm">
           <div>
             <p className="text-xs font-semibold text-slate-500">ผ่านเกณฑ์ (Eligible)</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{eligibleApplicants}</p>
+            <p className="text-3xl font-black text-emerald-700 mt-1">{eligibleApplicants}</p>
           </div>
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl text-xl">✓</div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center shadow-sm">
+          <div>
+            <p className="text-xs font-semibold text-slate-500">ไม่ผ่านเกณฑ์ (Ineligible)</p>
+            <p className="text-3xl font-black text-rose-600 mt-1">{ineligibleApplicants}</p>
+          </div>
+          <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-xl">✕</div>
         </div>
       </div>
     </div>

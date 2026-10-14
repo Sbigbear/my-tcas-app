@@ -20,11 +20,12 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
     router.push('/login')
   }
 
-  // รายการเมนูสำหรับนักเรียน (ลบเอกสารการศึกษาออกแล้ว)
+  // 📌 เพิ่มเมนู "สมัครหลักสูตร" (/student/search) เข้าไปในแถบเมนู
   const navItems = [
     { label: 'ภาพรวม', href: '/student/dashboard' },
     { label: 'สถานะการสมัคร', href: '/student/applications' },
     { label: 'คะแนนของฉัน', href: '/student/scores' },
+    { label: 'ตัวอย่างการสมัครหลักสูตร', href: '/student/search' },
   ]
 
   return (

@@ -143,10 +143,14 @@ export default async function TeacherCriteriaPage() {
                 key={item.Program_Criteriaid}
                 className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm hover:border-slate-300 transition"
               >
-                {/* Header ส่วนชื่อภาควิชา และ สถานะการรับสมัคร */}
+                {/* Header ส่วนชื่อภาควิชา, รหัสหลักสูตร และ สถานะการรับสมัคร */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
+                      {/* 📌 แท็กแสดงรหัสหลักสูตร เช่น QH800-67 */}
+                      <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 font-mono">
+                        {item.Program_Criteriaid}
+                      </span>
                       <h3 className="font-bold text-slate-900 text-base">
                         {item.programName}
                       </h3>
@@ -160,7 +164,7 @@ export default async function TeacherCriteriaPage() {
                         {item.isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-1">
                       {item.university?.faculty} - {item.university?.department} ({item.university?.campus})
                     </p>
                   </div>

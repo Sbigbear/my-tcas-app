@@ -9,6 +9,25 @@ const toNumber = (val: any) => {
   return isNaN(parsed) ? null : parsed
 }
 
+// ฟังก์ชันช่วยดึง userId ของผู้ใช้งานปัจจุบันจาก Cookie หรือ Token
+async function getCurrentUserId() {
+  try {
+    const cookieStore = await cookies()
+    let userId = cookieStore.get('userId')?.value || cookieStore.get('teacher_id')?.value
+    const token = cookieStore.get('token')?.value
+
+    if (!userId && token) {
+      const decoded = jwt.decode(token) as any
+      if (decoded) {
+        userId = decoded?.id || decoded?.userId || decoded?.sub
+      }
+    }
+    return userId || null
+  } catch (e) {
+    return null
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -86,7 +105,7 @@ export async function POST(req: Request) {
     let criteriaId = body.Program_Criteriaid || body.criteriaId || ''
     criteriaId = typeof criteriaId === 'string' ? criteriaId.trim() : ''
 
-    // 📌 กรณีถ้าผู้ใช้ปล่อยว่างไว้ ไม่ได้พิมพ์รหัสมา -> ระบบจะรัน crit-027 ให้อัตโนมัติ
+    // 📌 กรณีถ้าผู้ใช้ปล่อยว่างไว้ ไม่ได้พิมพ์รหัสมา -> ระบบจะรัน crit-XXX ให้อัตโนมัติ
     if (!criteriaId) {
       const allCriteria = await prisma.programCriteria.findMany({
         where: {
@@ -111,8 +130,8 @@ export async function POST(req: Request) {
       const nextNum = maxNum + 1
       criteriaId = `crit-${String(nextNum).padStart(3, '0')}`
     }
-    // 📌 หากพิมพ์ไอดีเข้ามาเอง (เช่น QH800-67) จะถูกใช้เป็น Program_Criteriaid โดยตรง ไม่ถูกดัดแปลงใดๆ
 
+    // บันทึกหลักสูตรใหม่ลงฐานข้อมูล
     const newCriteria = await prisma.programCriteria.create({
       data: {
         Program_Criteriaid: criteriaId,
@@ -150,6 +169,16 @@ export async function POST(req: Request) {
       },
     })
 
+    // 📌 บันทึกประวัติการทำงานลงตาราง D8_AuditLogs เพื่อแสดงใน System Logs
+    const currentUserId = await getCurrentUserId()
+    await prisma.auditLog.create({
+      data: {
+        action: 'เพิ่มหลักสูตรใหม่',
+        details: `เพิ่มหลักสูตร/เกณฑ์ใหม่: ${criteriaId} (${body.programName})`,
+        userId: currentUserId,
+      },
+    })
+
     return NextResponse.json({ success: true, data: newCriteria })
   } catch (error: any) {
     console.error('Error creating criteria:', error)
@@ -174,6 +203,16 @@ export async function PATCH(req: Request) {
     const updated = await prisma.programCriteria.update({
       where: { Program_Criteriaid: id },
       data: { isOpen },
+    })
+
+    // 📌 บันทึกประวัติการอัปเดตสถานะลงตาราง D8_AuditLogs
+    const currentUserId = await getCurrentUserId()
+    await prisma.auditLog.create({
+      data: {
+        action: 'แก้ไขสถานะหลักสูตร',
+        details: `อัปเดตสถานะหลักสูตร ${id} เป็น ${isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}`,
+        userId: currentUserId,
+      },
     })
 
     return NextResponse.json({ success: true, data: updated })

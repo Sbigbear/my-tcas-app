@@ -93,7 +93,10 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     setErrorMessage(null)
 
     if (tabToValidate === 'basic') {
-      // 📌 ปลดล็อก criteriaId ไม่บังคับกรอก เพื่อให้ปล่อยว่างไปสร้างรหัสอัตโนมัติได้
+      if (!criteriaId.trim()) {
+        setErrorMessage('กรุณากรอกรหัสเกณฑ์ / รหัสหลักสูตร (เช่น QH800-67)')
+        return false
+      }
       if (!programName.trim()) {
         setErrorMessage('กรุณากรอกชื่อหลักสูตร / โครงการ')
         return false
@@ -344,17 +347,17 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      รหัสเกณฑ์ / รหัสหลักสูตร <span className="text-slate-400 font-normal">(ไม่ระบุ = ระบบสร้างให้อัตโนมัติ เช่น crit-027)</span>
+                      รหัสเกณฑ์ / รหัสหลักสูตร <span className="text-red-500">*</span> <span className="text-slate-400 font-normal">(เช่น QH800-67)</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="เช่น 027 หรือปล่อยว่างไว้เพื่อสร้างอัตโนมัติ"
+                      placeholder="เช่น QH800-67"
                       value={criteriaId}
                       onChange={(e) => setCriteriaId(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 uppercase font-mono"
                     />
                     <p className="text-[11px] text-slate-400 mt-1">
-                      ระบุรหัสประจำเกณฑ์ หรือปล่อยว่างไว้เพื่อให้ระบบรันไอดีลำดับถัดไป (crit-XXX) ให้อัตโนมัติ
+                      รูปแบบ: QH (รหัสภาค) 800 (รหัสสาขา) 67 (ปีการศึกษา)
                     </p>
                   </div>
 

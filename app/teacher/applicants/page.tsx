@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Clock } from 'lucide-react'
 
 // 1. ดึง universityId ของอาจารย์ที่ล็อกอินอยู่จริง ณ ขณะนั้น
 async function getTeacherUniversityId() {
@@ -149,7 +149,7 @@ export default async function ApplicantsPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // 📌 ปรับแก้ไขตรงนี้: หากไม่ผ่านเกณฑ์คุณสมบัติ ให้แสดงป้ายสีแดง "ไม่ผ่านเกณฑ์" ทันที
+  // ป้ายแสดงสถานะ (ผ่านเกณฑ์ / ไม่ผ่านเกณฑ์ / ยกเลิก)
   const renderStatusBadge = (status: string, isEligibleByCriteria: boolean) => {
     if (status === 'CANCELLED') {
       return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">ยกเลิกการสมัคร</span>
@@ -157,10 +157,6 @@ export default async function ApplicantsPage() {
 
     if (!isEligibleByCriteria) {
       return <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">ไม่ผ่านเกณฑ์</span>
-    }
-
-    if (status === 'PENDING') {
-      return <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">รอตรวจสอบ</span>
     }
 
     return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">ผ่านเกณฑ์</span>
@@ -184,12 +180,32 @@ export default async function ApplicantsPage() {
           applications.map((app) => {
             const evalRes = evaluateApplicant(app)
 
+            // จัดรูปแบบวันที่และเวลาที่สมัคร
+            const appliedAt = new Date(app.createdAt).toLocaleDateString('th-TH', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }) + ' น.'
+
             return (
               <div
                 key={app.Applicationsid}
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition space-y-3"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                {/* 📌 ย้ายเวลาที่สมัครมาไว้ที่มุมซ้ายบน */}
+                <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-100 pb-2">
+                  <span className="flex items-center gap-1.5 text-slate-500 text-[11px] bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    สมัครเมื่อ: {appliedAt}
+                  </span>
+                  <span className="font-mono text-[11px] text-slate-500">
+                    รหัสการสมัคร: {app.Applicationsid}
+                  </span>
+                </div>
+
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
                   {/* ฝั่งซ้าย: ข้อมูลผู้สมัคร และ สาขาที่สมัคร */}
                   <div className="flex items-center gap-3.5 flex-shrink-0">
                     <div className="w-10 h-10 rounded-full bg-emerald-100 text-[#07382B] flex items-center justify-center font-bold text-sm flex-shrink-0">
@@ -200,7 +216,7 @@ export default async function ApplicantsPage() {
                       <p className="text-xs text-slate-500 mt-0.5">
                         {app.criteria.programName}{' '}
                         <span className="text-slate-400">
-                          ({app.criteria.university?.faculty || '-'} - {app.criteria.university?.department || '-'})
+                          ({app.criteria.university?.faculty || '-'} {app.criteria.university?.department || '-'})
                         </span>
                       </p>
                     </div>
