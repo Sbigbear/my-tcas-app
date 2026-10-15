@@ -29,33 +29,62 @@ export default async function StudentSearchPage() {
     })
   }
 
-  // ดึงหลักสูตรที่เปิดรับสมัครอยู่
-  const openCourses = await prisma.programCriteria.findMany({
-    where: { isOpen: true },
+  // ดึงหลักสูตรทั้งหมด พร้อมประวัติการสมัครเพื่อคำนวณจำนวนรวม
+  const rawCourses = await prisma.programCriteria.findMany({
     include: {
       university: true,
-      applications: currentStudent
-        ? {
-            where: { studentId: currentStudent.Studentsid },
-          }
-        : false,
+      applications: {
+        select: { studentId: true, status: true },
+      },
     },
     orderBy: { createdAt: 'desc' },
   })
 
-  const formattedCourses = openCourses.map((c) => ({
-    id: c.Program_Criteriaid,
-    programName: c.programName,
-    faculty: c.university.faculty,
-    department: c.university.department,
-    campus: c.university.campus,
-    universityName: c.university.name,
-    capacity: c.capacity,
-    minGpax: c.minGpax,
-    minTgat: c.minTgat,
-    additionals: c.additionals,
-    hasApplied: c.applications ? c.applications.length > 0 : false,
-  }))
+  // 📌 ประมวลผลและซิงก์สั่งปิดรับสมัครลง MySQL ทันทีที่เต็มโควตา
+  const formattedCourses = await Promise.all(
+    rawCourses.map(async (c) => {
+      // นับจำนวนผู้สมัครที่ไม่ถูกยกเลิก (CANCELLED)
+      const activeApplications = (c.applications || []).filter(
+        (app) => app.status !== 'CANCELLED'
+      )
+      const totalAppliedCount = activeApplications.length
+
+      // ตรวจสอบว่าผู้สมัครเต็มจำนวนโควตาแล้วหรือไม่
+      const isFull = c.capacity > 0 && totalAppliedCount >= c.capacity
+
+      // 📌 หากเต็มแล้ว แต่ใน DB ยังคงเป็น isOpen = true -> อัปเดตลง MySQL ให้เป็น false ทันที
+      let currentIsOpen = c.isOpen
+      if (isFull && c.isOpen) {
+        await prisma.programCriteria.update({
+          where: { Program_Criteriaid: c.Program_Criteriaid },
+          data: { isOpen: false },
+        })
+        currentIsOpen = false
+      }
+
+      // ตรวจสอบว่านักเรียนคนนี้สมัครหลักสูตรนี้ไปแล้วหรือยัง
+      const hasApplied = currentStudent
+        ? activeApplications.some((app) => app.studentId === currentStudent.Studentsid)
+        : false
+
+      return {
+        id: c.Program_Criteriaid,
+        programName: c.programName,
+        faculty: c.university?.faculty || '-',
+        department: c.university?.department || '-',
+        campus: c.university?.campus || '-',
+        universityName: c.university?.name || '-',
+        capacity: c.capacity,
+        totalAppliedCount,
+        minGpax: c.minGpax,
+        minTgat: c.minTgat,
+        additionals: c.additionals,
+        isOpen: currentIsOpen,
+        isFull,
+        hasApplied,
+      }
+    })
+  )
 
   return (
     <SearchClient

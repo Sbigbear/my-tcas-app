@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, CheckCircle2, Send, AlertCircle, Building2 } from 'lucide-react'
+import { Search, CheckCircle2, Send, AlertCircle, Building2, XCircle, RefreshCw } from 'lucide-react'
 
 interface Course {
   id: string
@@ -12,9 +12,12 @@ interface Course {
   campus: string
   universityName: string
   capacity: number
+  totalAppliedCount: number
   minGpax: number | null
   minTgat: number | null
   additionals: string | null
+  isOpen: boolean
+  isFull: boolean
   hasApplied: boolean
 }
 
@@ -34,7 +37,8 @@ export default function SearchClient({
     (c) =>
       c.programName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.faculty.toLowerCase().includes(searchTerm.toLowerCase())
+      c.faculty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.id.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleApply = async (criteriaId: string) => {
@@ -105,7 +109,7 @@ export default function SearchClient({
       {/* รายการหลักสูตร */}
       <div className="space-y-3">
         {filteredCourses.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
             ไม่พบหลักสูตรที่เปิดรับสมัครในขณะนี้
           </div>
         ) : (
@@ -122,8 +126,10 @@ export default function SearchClient({
                   <h3 className="font-bold text-slate-900 text-sm">{course.programName}</h3>
                 </div>
                 <p className="text-xs text-slate-500 flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  {course.faculty} - {course.department} ({course.universityName} {course.campus})
+                  <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>
+                    {course.faculty} - {course.department} ({course.universityName} {course.campus})
+                  </span>
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
                   <span className="bg-slate-50 text-slate-600 px-2.5 py-0.5 rounded-md border border-slate-200">
@@ -142,13 +148,28 @@ export default function SearchClient({
                 </div>
               </div>
 
+              {/* 📌 ควบคุมปุ่มกดสมัคร / ปิดรับสมัคร / เต็มแล้ว */}
               <div className="flex-shrink-0">
                 {course.hasApplied ? (
                   <button
                     disabled
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 cursor-not-allowed flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed flex items-center gap-1.5"
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" /> สมัครแล้ว
+                  </button>
+                ) : course.isFull ? (
+                  <button
+                    disabled
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4 text-rose-500" /> ปิดรับสมัคร (เต็มแล้ว)
+                  </button>
+                ) : !course.isOpen ? (
+                  <button
+                    disabled
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4 text-slate-400" /> ปิดรับสมัคร
                   </button>
                 ) : (
                   <button
@@ -156,8 +177,15 @@ export default function SearchClient({
                     disabled={loadingId === course.id}
                     className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#07382B] text-white hover:bg-[#052920] transition shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    {loadingId === course.id ? 'กำลังสมัคร...' : 'สมัครหลักสูตรนี้'}
+                    {loadingId === course.id ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> กำลังสมัคร...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" /> สมัครหลักสูตรนี้
+                      </>
+                    )}
                   </button>
                 )}
               </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
-// GET: ดึงจำนวนผู้ใช้งานทั้งหมด (นับรวม User + Student)
+// GET: ดึงจำนวนผู้ใช้งาน
 export async function GET() {
   try {
     const userCount = await prisma.user.count()
@@ -18,11 +18,11 @@ export async function GET() {
   }
 }
 
-// POST: เพิ่มผู้ใช้งานใหม่ (รองรับทั้งนักเรียน และผู้ดูแลระบบ/เจ้าหน้าที่)
+// POST: เพิ่มผู้ใช้งานใหม่
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, email, password, role } = body
+    const { name, email, password, role, teacherId, universityId } = body
 
     if (!name || !email) {
       return NextResponse.json(
@@ -31,7 +31,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // 1. กรณีเป็น "นักเรียน" -> เพิ่มลงตาราง Student
     if (role === 'STUDENT' || role === 'นักเรียน') {
       const codeFromEmail = email.split('@')[0] || Date.now().toString()
 
@@ -39,14 +38,13 @@ export async function POST(request: Request) {
         data: {
           name,
           studentCode: codeFromEmail,
-          nationalId: codeFromEmail, // กำหนดค่าชั่วคราวให้ nationalId (เนื่องจากเป็น @unique)
+          nationalId: codeFromEmail,
         },
       })
 
       return NextResponse.json({ success: true, data: newStudent })
     }
 
-    // 2. กรณีเป็น "ผู้ดูแลระบบ" หรือ "อาจารย์/เจ้าหน้าที่" -> เพิ่มลงตาราง User
     if (!password) {
       return NextResponse.json(
         { success: false, message: 'กรุณากรอกรหัสผ่าน' },
@@ -59,12 +57,18 @@ export async function POST(request: Request) {
       userRole = 'ADMIN'
     }
 
+    const userCount = await prisma.user.count()
+    const customUserId = `usr-t${String(userCount + 1).padStart(2, '0')}`
+
     const newUser = await prisma.user.create({
       data: {
+        Usersid: customUserId,
         name,
         email,
         password,
         role: userRole,
+        teacherId: userRole === 'OFFICER' ? teacherId || null : null,
+        universityId: userRole === 'OFFICER' ? universityId || null : null,
       },
     })
 

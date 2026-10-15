@@ -3,6 +3,9 @@ import UserListClient from './UserClient'
 
 export default async function UsersPage() {
   const users = await prisma.user.findMany({
+    include: {
+      university: true,
+    },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -10,14 +13,19 @@ export default async function UsersPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // รวมรายชื่อผู้ใช้งานและนักเรียนนำมาแสดงในตาราง
+  // 📌 ดึงรายชื่อสาขา/คณะทั้งหมดใน MySQL สำหรับแสดงใน Dropdown
+  const universities = await prisma.university.findMany({
+    orderBy: { code: 'asc' },
+  })
+
   const formattedUsers = [
-    ...users.map((u) => ({
+    ...users.map((u: any) => ({
       id: u.Usersid,
       name: u.name,
       email: u.email,
-      role: u.role, // ADMIN หรือ OFFICER
+      role: u.role,
       type: 'USER' as const,
+      department: u.university ? `${u.university.faculty} - ${u.university.department}` : '-',
     })),
     ...students.map((s) => ({
       id: s.Studentsid,
@@ -25,12 +33,13 @@ export default async function UsersPage() {
       email: s.studentCode ? `${s.studentCode}@ku.th` : `${s.nationalId}@ku.th`,
       role: 'STUDENT',
       type: 'STUDENT' as const,
+      department: '-',
     })),
   ]
 
   return (
     <div className="space-y-6">
-      <UserListClient initialUsers={formattedUsers} />
+      <UserListClient initialUsers={formattedUsers} universities={universities} />
     </div>
   )
 }

@@ -13,14 +13,24 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // ลบข้อมูลหลักสูตรจากตาราง ProgramCriteria
+    // 📌 Step 1: ลบรายการสมัครของนักเรียนที่ผูกกับหลักสูตรนี้ออกก่อน
+    await prisma.application.deleteMany({
+      where: {
+        criteriaId: id,
+      },
+    })
+
+    // 📌 Step 2: ลบข้อมูลหลักสูตรออกจากตาราง ProgramCriteria
     await prisma.programCriteria.delete({
       where: {
         Program_Criteriaid: id,
       },
     })
 
-    return NextResponse.json({ success: true, message: 'ลบหลักสูตรเรียบร้อยแล้ว' })
+    return NextResponse.json({
+      success: true,
+      message: 'ลบหลักสูตรและข้อมูลการสมัครที่เกี่ยวข้องเรียบร้อยแล้ว',
+    })
   } catch (error: any) {
     console.error('Error deleting course:', error)
     return NextResponse.json(
