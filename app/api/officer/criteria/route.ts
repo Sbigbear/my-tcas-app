@@ -7,6 +7,8 @@ import { revalidatePath } from 'next/cache'
 export async function POST(req: Request) {
   try {
     const body = await req.json()
+    
+    // 📌 1. แยกฟิลด์ที่ไม่เกี่ยวกับตาราง ProgramCriteria ออก เพื่อป้องกัน Unknown Argument Error ใน Prisma
     const {
       Program_Criteriaid,
       universityId: selectedUnivId,
@@ -16,17 +18,19 @@ export async function POST(req: Request) {
       isOpen,
       additionals,
       foreignLanguageSubject,
+      facultyName: bodyFacultyName,
+      universityMode,
       ...criteriaScores
     } = body
 
     if (!Program_Criteriaid || !programName || !capacity) {
       return NextResponse.json(
-        { success: false, message: 'กรุณากรอกข้อมูลสำคัญให้ครบถ้วน' },
+        { success: false, message: 'กรุณากรอกข้อมูลสำคัญให้ครบถ้วน (รหัสเกณฑ์, ชื่อหลักสูตร, และจำนวนที่รับ)' },
         { status: 400 }
       )
     }
 
-    // 1. ดึงข้อมูลเจ้าหน้าที่คณะเพื่อเอาคณะ (faculty) และ วิทยาเขต (campus)
+    // 📌 2. ดึงข้อมูลเจ้าหน้าที่ผู้ใช้งานจาก Cookie หรือ JWT Token
     const cookieStore = await cookies()
     const token = cookieStore.get('token')?.value
     let userEmail = cookieStore.get('email')?.value || cookieStore.get('user_email')?.value
@@ -44,28 +48,37 @@ export async function POST(req: Request) {
       }
     }
 
-    const officer = await prisma.user.findFirst({
-      where: {
-        OR: [
-          userEmail ? { email: userEmail } : null,
-          userId ? { Usersid: userId } : null,
-        ].filter(Boolean) as any[],
-      },
-      include: { university: true },
-    })
+    const orConditions = [
+      userEmail ? { email: userEmail } : null,
+      userId ? { Usersid: userId } : null,
+    ].filter(Boolean) as any[]
 
-    if (!officer || !officer.university) {
+    if (orConditions.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'ไม่พบข้อมูลสังกัดคณะของเจ้าหน้าที่' },
-        { status: 403 }
+        { success: false, message: 'ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่อีกครั้ง' },
+        { status: 401 }
       )
     }
 
-    const faculty = officer.university.faculty
-    const campus = officer.university.campus || 'บางเขน'
+    const officer = await prisma.user.findFirst({
+      where: { OR: orConditions },
+      include: { university: true },
+    })
+
+    if (!officer) {
+      return NextResponse.json(
+        { success: false, message: 'ไม่พบข้อมูลบัญชีผู้ใช้เจ้าหน้าที่ในระบบ' },
+        { status: 404 }
+      )
+    }
+
+    // 📌 3. จัดการเรื่องคณะ (Faculty) และ มหาวิทยาลัย (University)
+    // หาก officer.university เป็น null ให้ใช้ bodyFacultyName หรือค่าเริ่มต้น
+    let faculty = officer.university?.faculty || bodyFacultyName?.trim() || 'วิศวกรรมศาสตร์'
+    let campus = officer.university?.campus || 'บางเขน'
     let targetUniversityId = selectedUnivId
 
-    // 2. ค้นหา หรือ สร้างสาขาวิชาใหม่ในตาราง University จากชื่อสาขาที่กรอกเข้ามา
+    // 📌 4. ค้นหา หรือ สร้างสาขาวิชาใหม่ในตาราง University จากชื่อสาขาที่กรอกเข้ามา
     if (departmentName?.trim()) {
       const cleanDept = departmentName.trim()
 
@@ -102,7 +115,7 @@ export async function POST(req: Request) {
           data: {
             Universitiesid: newUnivId,
             code: newCode,
-            name: officer.university.name || 'มหาวิทยาลัยเกษตรศาสตร์',
+            name: officer.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์',
             campus,
             faculty,
             department: cleanDept,
@@ -112,11 +125,33 @@ export async function POST(req: Request) {
       }
     }
 
+    // หากยังไม่มี targetUniversityId ให้ใช้ universityId เดิมของเจ้าหน้าที่ หรือสั่งสร้าง/ผูกอัตโนมัติ
     if (!targetUniversityId) {
-      targetUniversityId = officer.universityId
+      if (officer.universityId) {
+        targetUniversityId = officer.universityId
+      } else {
+        // สร้าง University Record ให้เจ้าหน้าที่หากใน DB ไม่มีข้อมูลผูกไว้
+        const defaultUniv = await prisma.university.create({
+          data: {
+            Universitiesid: `univ-off-${Date.now().toString().slice(-4)}`,
+            code: 'KU000',
+            name: 'มหาวิทยาลัยเกษตรศาสตร์',
+            campus,
+            faculty,
+            department: departmentName?.trim() || 'ประจำคณะ',
+          } as any,
+        })
+        targetUniversityId = (defaultUniv as any).Universitiesid || (defaultUniv as any).Universityid
+
+        // ผูก universityId ให้เจ้าหน้าที่ใน DB
+        await prisma.user.update({
+          where: { Usersid: officer.Usersid },
+          data: { universityId: targetUniversityId },
+        })
+      }
     }
 
-    // 3. บันทึกเกณฑ์หลักสูตรลงตาราง ProgramCriteria
+    // 📌 5. บันทึกเกณฑ์หลักสูตรลงตาราง ProgramCriteria
     const createdCriteria = await prisma.programCriteria.create({
       data: {
         Program_Criteriaid: Program_Criteriaid.trim(),
@@ -130,10 +165,10 @@ export async function POST(req: Request) {
       },
     })
 
-    // 📌 4. บันทึกประวัติการทำงานลงตาราง AuditLog / SystemLog (สำหรับแสดงใน /admin/logs)
+    // 📌 6. บันทึกประวัติการทำงานลงตาราง AuditLog / SystemLog
     const officerName = officer.name || 'เจ้าหน้าที่คณะ'
-    const deptDisplay = departmentName?.trim() || officer.university.department || '-'
-    const logDetails = `${officer.role === 'OFFICER' ? 'เจ้าหน้าที่คณะ' : 'อาจารย์'} (${officerName}) เพิ่มหลักสูตรใหม่: ${programName} (${deptDisplay}) รับจำนวน ${capacity} คน`
+    const deptDisplay = departmentName?.trim() || officer.university?.department || 'ประจำคณะ'
+    const logDetails = `${officer.role === 'OFFICER' ? 'เจ้าหน้าที่คณะ' : 'อาจารย์'} (${officerName}) เพิ่มหลักสูตรใหม่: ${programName} (${faculty} - ${deptDisplay}) รับจำนวน ${capacity} คน`
 
     try {
       if ((prisma as any).auditLog) {
@@ -160,7 +195,7 @@ export async function POST(req: Request) {
       console.error('AuditLog Error:', logErr)
     }
 
-    // 📌 5. Revalidate ล้าง Cache ให้ข้อมูลอัปเดตเรียลไทม์ทันทีทุกหน้า
+    // 📌 7. Revalidate ล้าง Cache ให้ข้อมูลอัปเดตเรียลไทม์ทันที
     revalidatePath('/admin/logs')
     revalidatePath('/officer/courses')
     revalidatePath('/teacher/courses')
@@ -176,7 +211,7 @@ export async function POST(req: Request) {
       )
     }
     return NextResponse.json(
-      { success: false, message: `เกิดข้อผิดพลาด: ${error.message}` },
+      { success: false, message: `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}` },
       { status: 500 }
     )
   }
