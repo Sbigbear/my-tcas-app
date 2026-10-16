@@ -181,7 +181,8 @@ export default async function ApplicantsPage() {
             const evalRes = evaluateApplicant(app)
 
             // จัดรูปแบบวันที่และเวลาที่สมัคร
-            const appliedAt = new Date(app.createdAt).toLocaleDateString('th-TH', {
+            const appliedAt = new Date(app.createdAt).toLocaleString('th-TH', {
+              timeZone: 'Asia/Bangkok',
               day: 'numeric',
               month: 'short',
               year: 'numeric',
