@@ -7,26 +7,27 @@ export async function createUserData(formData: FormData) {
   const name = formData.get('name') as string
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const roleType = formData.get('role') as 'OFFICER' | 'ADMIN'
+  const roleType = formData.get('role') as 'OFFICER' | 'TEACHER' | 'ADMIN'
   const teacherId = formData.get('teacherId') as string | null
 
   const universityMode = formData.get('universityMode') as string // 'SELECT' หรือ 'CUSTOM'
   let universityId = formData.get('universityId') as string | null
   const faculty = formData.get('faculty') as string | null
-  const department = formData.get('department') as string | null
+  const rawDepartment = formData.get('department') as string | null
   const campus = formData.get('campus') as string | null
 
   if (!name || !email || !password || !roleType) return
 
-  // 📌 กรณีเป็นอาจารย์ (OFFICER) และเลือกกรอกข้อมูล คณะ/สาขา/วิทยาเขต เอง
-  if (roleType === 'OFFICER') {
-    if (universityMode === 'CUSTOM' || (!universityId && faculty && department)) {
+  // 📌 ถ้าเป็นเจ้าหน้าที่คณะ (OFFICER) สาขาวิชาจะถูกกำหนดเป็น "ประจำคณะ" หรือ "-" โดยอัตโนมัติ
+  const department = roleType === 'OFFICER' ? 'ประจำคณะ' : rawDepartment
+
+  if (roleType === 'OFFICER' || roleType === 'TEACHER') {
+    if (universityMode === 'CUSTOM' || (!universityId && faculty)) {
       const cleanFaculty = faculty?.trim() || ''
-      const cleanDept = department?.trim() || ''
+      const cleanDept = department?.trim() || 'ประจำคณะ'
       const cleanCampus = campus?.trim() || 'บางเขน'
 
-      if (cleanFaculty && cleanDept) {
-        // ค้นหาว่ามี คณะ - สาขา - วิทยาเขต นี้ในตาราง D5_Universities หรือยัง
+      if (cleanFaculty) {
         let existingUniv = await prisma.university.findFirst({
           where: {
             faculty: cleanFaculty,
@@ -38,7 +39,6 @@ export async function createUserData(formData: FormData) {
         if (existingUniv) {
           universityId = existingUniv.Universitiesid
         } else {
-          // หากยังไม่มี ให้สร้างสาขาใหม่ใน D5_Universities อัตโนมัติ
           const univCount = await prisma.university.count()
           const allUnivs = await prisma.university.findMany({
             select: { Universitiesid: true },
@@ -72,9 +72,10 @@ export async function createUserData(formData: FormData) {
     }
   }
 
-  // 📌 สร้าง ID รหัสผู้ใช้ (usr-tXX)
+  // 📌 สร้าง ID ผู้ใช้แยกตามบทบาท (usr-oXX สำหรับ Officer, usr-tXX สำหรับ Teacher)
   const userCount = await prisma.user.count()
-  const customUserId = `usr-t${String(userCount + 1).padStart(2, '0')}`
+  const prefix = roleType === 'OFFICER' ? 'usr-o' : roleType === 'TEACHER' ? 'usr-t' : 'usr-a'
+  const customUserId = `${prefix}${String(userCount + 1).padStart(2, '0')}`
 
   const user = await prisma.user.create({
     data: {
@@ -83,8 +84,8 @@ export async function createUserData(formData: FormData) {
       email,
       password: password,
       role: roleType,
-      teacherId: roleType === 'OFFICER' ? teacherId || null : null,
-      universityId: roleType === 'OFFICER' ? universityId || null : null,
+      teacherId: (roleType === 'TEACHER' || roleType === 'OFFICER') ? teacherId || null : null,
+      universityId: (roleType === 'TEACHER' || roleType === 'OFFICER') ? universityId || null : null,
     },
   })
 

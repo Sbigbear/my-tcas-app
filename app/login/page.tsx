@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type Role = 'student' | 'teacher' | 'admin'
+type Role = 'student' | 'teacher' | 'officer' | 'admin'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,15 +19,22 @@ export default function LoginPage() {
         return {
           title: 'ตรวจสอบคะแนน',
           subtitle: 'ดูข้อมูลผลการเรียน คะแนนสอบ และหลักสูตรที่ผ่านเกณฑ์',
-          userLabel: 'เลขประจำตัวประชาชน 13 หลัก ',
+          userLabel: 'เลขประจำตัวประชาชน 13 หลัก',
           placeholder: '1103700123456',
         }
       case 'teacher':
         return {
-          title: 'ตรวจสอบคุณสมบัติผู้สมัคร',
-          subtitle: 'ติดตามผู้สมัคร ตรวจสอบหลักฐาน และจัดการเกณฑ์หลักสูตร',
-          userLabel: 'บัญชีบุคลากรมหาวิทยาลัย (อีเมล/ไอดี)',
+          title: 'คัดเลือกผู้สมัคร',
+          subtitle: 'ตรวจสอบคะแนน เอกสาร และคัดเลือกผู้สมัครที่ผ่านเกณฑ์',
+          userLabel: 'บัญชีอาจารย์/กรรมการ (อีเมล/ไอดี)',
           placeholder: 'teacher.t@ku.th',
+        }
+      case 'officer':
+        return {
+          title: 'จัดการหลักสูตรและยืนยันผล',
+          subtitle: 'สร้างและจัดการเกณฑ์หลักสูตร รวมถึงยืนยันผลการคัดเลือก',
+          userLabel: 'บัญชีเจ้าหน้าที่ประจำคณะ (อีเมล/ไอดี)',
+          placeholder: 'officer.f@ku.th',
         }
       case 'admin':
         return {
@@ -47,6 +54,8 @@ export default function LoginPage() {
     let endpoint = '/api/auth/student-login'
     if (role === 'teacher') {
       endpoint = '/api/auth/teacher-login'
+    } else if (role === 'officer') {
+      endpoint = '/api/auth/officer-login'
     } else if (role === 'admin') {
       endpoint = '/api/auth/admin-login'
     }
@@ -74,19 +83,25 @@ export default function LoginPage() {
         // 1. บันทึกข้อมูล Object ของผู้ใช้
         localStorage.setItem('user', JSON.stringify(userToSave))
 
-        // 📌 2. บันทึก studentId แยกไว้สำหรับใช้อ้างอิงใน API Matching และ Apply
+        // 📌 2. บันทึก ID แยกตามบทบาท
         if (role === 'student') {
           const studentIdToStore = 
             userToSave.studentId || 
             userToSave.id || 
             userToSave.nationalId || 
             username
-
           localStorage.setItem('studentId', studentIdToStore)
+        } else if (role === 'officer') {
+          const officerIdToStore = 
+            userToSave.Usersid || 
+            userToSave.id || 
+            username
+          localStorage.setItem('officerId', officerIdToStore)
         }
 
         if (role === 'student') router.push('/student/dashboard')
         else if (role === 'teacher') router.push('/teacher/dashboard')
+        else if (role === 'officer') router.push('/officer/courses')
         else router.push('/admin/dashboard')
       } else {
         setErrorMsg(data.message || 'เข้าสู่ระบบไม่สำเร็จ')
@@ -104,7 +119,6 @@ export default function LoginPage() {
     <div className="flex min-h-screen bg-slate-100 text-slate-900">
       {/* ฝั่งซ้าย: Banner */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#07382B] text-white p-12 flex-col justify-between relative overflow-hidden">
-        
         {/* Header Logo */}
         <div className="flex items-center gap-3 z-10">
           <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-white shadow-sm">
@@ -136,12 +150,12 @@ export default function LoginPage() {
             <p className="text-sm text-slate-600 mt-1">เลือกประเภทผู้ใช้งานเพื่อเข้าสู่ระบบ</p>
           </div>
 
-          {/* Role Tabs */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Role Tabs (ปรับเป็น 4 ปุ่ม) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               onClick={() => { setRole('student'); setErrorMsg(''); }}
-              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
+              className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                 role === 'student'
                   ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
@@ -156,29 +170,44 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setRole('teacher'); setErrorMsg(''); }}
-              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
+              className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                 role === 'teacher'
                   ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
               }`}
             >
               <div className={`p-2 rounded-lg ${role === 'teacher' ? 'bg-[#07382B] text-white' : 'bg-slate-100 text-slate-600'}`}>
-                👤
+                👨‍🏫
               </div>
               <span className="text-xs">อาจารย์</span>
             </button>
 
             <button
               type="button"
+              onClick={() => { setRole('officer'); setErrorMsg(''); }}
+              className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                role === 'officer'
+                  ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              <div className={`p-2 rounded-lg ${role === 'officer' ? 'bg-[#07382B] text-white' : 'bg-slate-100 text-slate-600'}`}>
+                🏛️
+              </div>
+              <span className="text-xs">เจ้าหน้าที่คณะ</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => { setRole('admin'); setErrorMsg(''); }}
-              className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${
+              className={`p-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                 role === 'admin'
                   ? 'border-[#07382B] bg-emerald-50/80 text-[#07382B] font-bold shadow-sm'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
               }`}
             >
               <div className={`p-2 rounded-lg ${role === 'admin' ? 'bg-[#07382B] text-white' : 'bg-slate-100 text-slate-600'}`}>
-                📋
+                ⚙️
               </div>
               <span className="text-xs">ผู้ดูแลระบบ</span>
             </button>

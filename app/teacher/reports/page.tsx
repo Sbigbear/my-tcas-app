@@ -66,12 +66,15 @@ export default async function ReportsPage() {
 
   const universityId = teacher.universityId
 
-  // 📌 กรองเฉพาะผู้สมัครที่อยู่ในสังกัด (universityId) ของอาจารย์คนนี้เท่านั้น
+  // 📌 กรองผู้สมัครในสังกัดที่ไม่ถูกยกเลิก (CANCELLED)
   const applications = universityId
     ? await prisma.application.findMany({
         where: {
           criteria: {
             universityId: universityId,
+          },
+          status: {
+            not: 'CANCELLED',
           },
         },
         include: {
@@ -90,13 +93,12 @@ export default async function ReportsPage() {
       })
     : []
 
-  // แปลงและวิเคราะห์ข้อมูลผู้สมัครเฉพาะสาขานี้
-  const formattedApplications: ReportApplication[] = applications.map((app: any) => {
+  // แปลงและวิเคราะห์ข้อมูลผู้สมัคร
+  const allFormatted: ReportApplication[] = applications.map((app: any) => {
     const student: any = app.student || {}
     const scores: any = student.tcasScores || {}
     const criteria: any = app.criteria || {}
 
-    // แมปชื่อฟิลด์ให้ตรงตาม Schema D3_Students และ D4_Tcas_Scores
     const checksConfig = [
       { label: 'GPAX', minKey: 'minGpax', getVal: () => student.gpax },
       { label: 'GPA คณิต', minKey: 'minMathGpa', getVal: () => student.mathGpa ?? student.gpaMath },
@@ -145,7 +147,7 @@ export default async function ReportsPage() {
       }
     }
 
-    const isEligible = failedReasons.length === 0 && app.status !== 'CANCELLED'
+    const isEligible = failedReasons.length === 0
 
     return {
       id: app.Applicationsid,
@@ -170,9 +172,14 @@ export default async function ReportsPage() {
     }
   })
 
+  // 📌 กรองเอาเฉพาะคนที่ผ่านเกณฑ์ขั้นต่ำ (isEligible) หรือ มีสถานะเป็น PASSED / CONFIRMED เท่านั้น
+  const qualifiedApplications = allFormatted.filter(
+    (app) => app.isEligible || app.status === 'PASSED' || app.status === 'CONFIRMED'
+  )
+
   return (
     <ReportsClient
-      applications={formattedApplications}
+      applications={qualifiedApplications}
       teacherName={teacher.name || 'อาจารย์ประจำสาขา'}
       facultyName={teacher.university?.faculty || 'คณะ'}
       departmentName={teacher.university?.department || 'สาขาวิชา'}

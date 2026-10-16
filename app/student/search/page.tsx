@@ -40,21 +40,27 @@ export default async function StudentSearchPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // 📌 ซิงก์สถานะลง MySQL แบบ 2 ทาง (Auto Close เมื่อเต็ม & Auto Re-open เมื่อโควตากลับมาว่าง)
+  // 📌 ซิงก์สถานะลง MySQL แบบ 2 ทาง (Auto Close เมื่ออาจารย์กดรับครบเต็มจำนวน & Auto Re-open เมื่อมีที่นั่งว่าง)
   const formattedCourses = await Promise.all(
     rawCourses.map(async (c) => {
-      // นับจำนวนผู้สมัครที่ไม่ถูกยกเลิก (CANCELLED)
-      const activeApplications = (c.applications || []).filter(
-        (app) => app.status !== 'CANCELLED'
-      )
+      const apps = c.applications || []
+
+      // 1. นับจำนวนผู้สมัครที่ไม่ถูกยกเลิก (สำหรับนับยอดสมัครรวม)
+      const activeApplications = apps.filter((app) => app.status !== 'CANCELLED')
       const totalAppliedCount = activeApplications.length
 
-      // ตรวจสอบว่าผู้สมัครเต็มจำนวนโควตาแล้วหรือไม่
-      const isFull = c.capacity > 0 && totalAppliedCount >= c.capacity
+      // 2. 📌 นับเฉพาะจำนวนคนที่อาจารย์กด "รับผ่านการคัดเลือก" แล้วจริง (PASSED หรือ CONFIRMED)
+      const passedCount = apps.filter(
+        (app) => app.status === 'PASSED' || app.status === 'CONFIRMED'
+      ).length
+
+      // 3. 📌 หลักสูตรจะถือว่าเต็ม (isFull) ก็ต่อเมื่อ "จำนวนผู้ผ่านการคัดเลือก" >= จำนวนรับ (capacity)
+      const isFull = c.capacity > 0 && passedCount >= c.capacity
 
       let currentIsOpen = c.isOpen
 
-      // 1. ถ้าคนสมัครเต็มโควตา -> สั่งปิดรับสมัคร (isOpen = false)
+      // 4. ซิงก์สถานะ isOpen ลงในฐานข้อมูลจริง
+      // ถ้าอาจารย์กดรับครบเต็มจำนวนโควตา -> สั่งปิดรับสมัคร (isOpen = false)
       if (isFull && c.isOpen) {
         await prisma.programCriteria.update({
           where: { Program_Criteriaid: c.Program_Criteriaid },
@@ -62,7 +68,7 @@ export default async function StudentSearchPage() {
         })
         currentIsOpen = false
       }
-      // 2. ถ้าโควตากลับมาว่าง (เช่น 0/1) แต่ DB ปิดอยู่ -> สั่งเปิดรับสมัครคืน (isOpen = true) อัตโนมัติ!
+      // ถ้าอาจารย์ยังกดรับไม่ครบ (เช่น รับแล้ว 1/2) แต่ DB ปิดอยู่ -> สั่งเปิดรับสมัครคืน (isOpen = true) อัตโนมัติ!
       else if (!isFull && !c.isOpen && c.capacity > 0) {
         await prisma.programCriteria.update({
           where: { Program_Criteriaid: c.Program_Criteriaid },
@@ -85,6 +91,7 @@ export default async function StudentSearchPage() {
         universityName: c.university?.name || '-',
         capacity: c.capacity,
         totalAppliedCount,
+        passedCount,
         minGpax: c.minGpax,
         minTgat: c.minTgat,
         additionals: c.additionals,

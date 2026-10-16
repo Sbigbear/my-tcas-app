@@ -13,7 +13,8 @@ generator client {
 
 enum Role {
   ADMIN
-  OFFICER
+  OFFICER      // เจ้าหน้าที่ประจำคณะ (สร้าง/จัดหลักสูตร, ยืนยันผลคัดเลือก)
+  TEACHER      // อาจารย์/กรรมการ (ดูรายชื่อผู้สมัคร, กดคัดเลือกผู้ผ่านเกณฑ์)
 }
 
 enum VerificationStatus {
@@ -23,30 +24,32 @@ enum VerificationStatus {
 }
 
 enum ApplicationStatus {
-  PENDING
-  ELIGIBLE
-  INELIGIBLE
-  CANCELLED
+  PENDING      // รอดำเนินการ
+  ELIGIBLE     // ระบบคำนวณว่า "ผ่านเกณฑ์ขั้นต่ำ"
+  INELIGIBLE   // ระบบคำนวณว่า "ไม่ผ่านเกณฑ์ขั้นต่ำ"
+  PASSED       // อาจารย์กดเลือก "คัดเลือกผ่าน" (นับเข้า capacity)
+  CONFIRMED    // เจ้าหน้าที่ประจำคณะกดยืนยันผลส่งมหาวิทยาลัย
+  CANCELLED    // ยกเลิก
 }
 
 // ----------------------------------------------------
-// MODELS (8 TABLES)
+// MODELS (9 TABLES)
 // ----------------------------------------------------
 
-// 1. D1: Users (สำหรับผู้ดูแลระบบ และ อาจารย์/กรรมการ)
+// 1. D1: Users (สำหรับผู้ดูแลระบบ เจ้าหน้าที่ และ อาจารย์)
 model User {
-  Usersid      String   @id @default(uuid()) @map("Usersid")
-  email        String   @unique
-  teacherId    String?  @unique
+  Usersid      String      @id @default(uuid()) @map("Usersid")
+  email        String      @unique
+  teacherId    String?     @unique
   password     String
   name         String
-  role         Role     @default(OFFICER)
+  role         Role        @default(OFFICER)
 
   universityId String?
   university   University? @relation(fields: [universityId], references: [Universitiesid])
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   auditLogs    AuditLog[]
 
@@ -55,14 +58,14 @@ model User {
 
 // 2. D2: Schools
 model School {
-  Schoolsid String   @id @default(uuid()) @map("Schoolsid")
-  code      String   @unique
+  Schoolsid String    @id @default(uuid()) @map("Schoolsid")
+  code      String    @unique
   name      String
   province  String
   students  Student[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("D2_Schools")
 }
@@ -147,71 +150,74 @@ model University {
   @@map("D5_Universities")
 }
 
+// 6. D6: ProgramCriteria
 model ProgramCriteria {
-  Program_Criteriaid String     @id @default(uuid()) @map("Program_Criteriaid")
-  universityId       String
-  university         University @relation(fields: [universityId], references: [Universitiesid])
-  isOpen             Boolean    @default(true)
-  programName        String
+  Program_Criteriaid     String        @id @default(uuid()) @map("Program_Criteriaid")
+  universityId           String
+  university             University    @relation(fields: [universityId], references: [Universitiesid])
+  isOpen                 Boolean       @default(true)
+  programName            String
 
   // เกรดเฉลี่ยขั้นต่ำ
-  minGpax            Float?
-  minMathGpa         Float?
-  minSciGpa          Float?
-  minEngGpa          Float?
-  minThaiGpa         Float?
-  minSocialGpa       Float?
-  minHealthGpa       Float?
-  minArtGpa          Float?
-  minCareerGpa       Float?
+  minGpax                Float?
+  minMathGpa             Float?
+  minSciGpa              Float?
+  minEngGpa              Float?
+  minThaiGpa             Float?
+  minSocialGpa           Float?
+  minHealthGpa           Float?
+  minArtGpa              Float?
+  minCareerGpa           Float?
 
   // คะแนนสอบขั้นต่ำ (TGAT / TPAT)
-  minTgat            Float?
-  minTpat1           Float?
-  minTpat2           Float?
-  minTpat3           Float?
-  minTpat4           Float?
-  minTpat5           Float?
+  minTgat                Float?
+  minTpat1               Float?
+  minTpat2               Float?
+  minTpat3               Float?
+  minTpat4               Float?
+  minTpat5               Float?
 
   // คะแนนสอบขั้นต่ำ (A-Level)
-  minAlevelMath1     Float?
-  minAlevelMath2     Float?
-  minAlevelSci       Float?
-  minAlevelPhy       Float?
-  minAlevelChem      Float?
-  minAlevelBio       Float?
-  minAlevelSoc       Float?
-  minAlevelThai      Float?
-  minAlevelEng       Float?
-  minAlevelForeign   Float?
-  foreignLanguageSubject String?  // <--- เพิ่มฟิลด์นี้ระบุชื่อภาษา เช่น 'Japanese', 'Chinese'
+  minAlevelMath1         Float?
+  minAlevelMath2         Float?
+  minAlevelSci           Float?
+  minAlevelPhy           Float?
+  minAlevelChem          Float?
+  minAlevelBio           Float?
+  minAlevelSoc           Float?
+  minAlevelThai          Float?
+  minAlevelEng           Float?
+  minAlevelForeign       Float?
+  foreignLanguageSubject String?
 
-  capacity           Int
-  additionals        String?    @db.Text
+  capacity               Int
+  additionals            String?       @db.Text
 
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
-  applications       Application[]
+  applications           Application[]
 
   @@map("D6_Program_Criteria")
 }
 
 // 7. D7: Applications
 model Application {
-  Applicationsid String            @id @default(uuid()) @map("Applicationsid")
-  studentId      String
-  student        Student           @relation(fields: [studentId], references: [Studentsid], onDelete: Cascade)
+  Applicationsid      String               @id @default(uuid()) @map("Applicationsid")
+  studentId           String
+  student             Student              @relation(fields: [studentId], references: [Studentsid], onDelete: Cascade)
 
-  criteriaId     String
-  criteria       ProgramCriteria   @relation(fields: [criteriaId], references: [Program_Criteriaid])
+  criteriaId          String
+  criteria            ProgramCriteria      @relation(fields: [criteriaId], references: [Program_Criteriaid])
 
-  status         ApplicationStatus @default(PENDING)
-  remark         String?           @db.Text
-  evaluatedAt    DateTime?
+  status              ApplicationStatus    @default(PENDING)
+  remark              String?              @db.Text
+  evaluatedAt         DateTime?
 
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  facultyConfirmation FacultyConfirmation?
 
   @@unique([studentId, criteriaId])
   @@map("D7_Applications")
@@ -232,4 +238,20 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   @@map("D8_AuditLogs")
+}
+
+// 9. D9: FacultyConfirmations (ตารางใหม่: เก็บประวัติการยืนยันผลการคัดเลือก)
+model FacultyConfirmation {
+  FacultyConfirmationsid String      @id @default(uuid()) @map("FacultyConfirmationsid")
+  applicationId          String      @unique
+  application            Application @relation(fields: [applicationId], references: [Applicationsid], onDelete: Cascade)
+
+  confirmedBy            String      // User ID ของผู้กดยืนยัน (อาจารย์/เจ้าหน้าที่)
+  confirmedRole          Role        // บทบาทผู้กด (TEACHER หรือ OFFICER)
+  note                   String?     @db.Text
+
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  @@map("D9_FacultyConfirmations")
 }

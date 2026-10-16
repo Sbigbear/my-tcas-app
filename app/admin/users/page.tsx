@@ -13,7 +13,6 @@ export default async function UsersPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // 📌 ดึงรายชื่อสาขา/คณะทั้งหมดใน MySQL สำหรับแสดงใน Dropdown
   const universities = await prisma.university.findMany({
     orderBy: { code: 'asc' },
   })
@@ -25,7 +24,7 @@ export default async function UsersPage() {
       email: u.email,
       role: u.role,
       type: 'USER' as const,
-      department: u.university ? `${u.university.faculty} - ${u.university.department}` : '-',
+      department: u.university ? `${u.university.faculty} ${u.university.department}` : '-',
     })),
     ...students.map((s) => ({
       id: s.Studentsid,

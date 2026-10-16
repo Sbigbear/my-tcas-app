@@ -1,10 +1,9 @@
 import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
-import { AlertCircle, Clock } from 'lucide-react'
+import ApplicantsClient from './ApplicantsClient'
 
-// 1. ดึง universityId ของอาจารย์ที่ล็อกอินอยู่จริง ณ ขณะนั้น
-async function getTeacherUniversityId() {
+async function getTeacherInfo() {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get('token')?.value
@@ -13,45 +12,46 @@ async function getTeacherUniversityId() {
     let userId: string | undefined
 
     if (token) {
-      const decoded = jwt.decode(token) as any
-      userEmail = decoded?.email || decoded?.userEmail
-      userId = decoded?.id || decoded?.userId || decoded?.sub
+      try {
+        const decoded = jwt.decode(token) as any
+        if (decoded) {
+          userEmail = decoded?.email || decoded?.userEmail
+          userId = decoded?.id || decoded?.userId || decoded?.sub
+        }
+      } catch (e) {
+        console.error('JWT Decode Error:', e)
+      }
     }
 
     if (!userEmail) {
-      userEmail = cookieStore.get('user_email')?.value
+      userEmail = cookieStore.get('user_email')?.value || cookieStore.get('email')?.value
     }
 
-    if (userEmail || userId) {
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            userEmail ? { email: userEmail } : {},
-            userId ? { Usersid: userId } : {},
-          ],
-        },
-        select: { universityId: true },
-      })
-      if (user?.universityId) return user.universityId
-    }
+    const cookieUserId =
+      cookieStore.get('teacher_id')?.value ||
+      cookieStore.get('userId')?.value ||
+      cookieStore.get('user_id')?.value
 
-    const cookieUserId = cookieStore.get('userId')?.value || cookieStore.get('user_id')?.value
-    if (cookieUserId) {
-      const user = await prisma.user.findUnique({
-        where: { Usersid: cookieUserId },
-        select: { universityId: true },
-      })
-      if (user?.universityId) return user.universityId
-    }
+    const orConditions = [
+      userEmail ? { email: userEmail } : null,
+      userId ? { Usersid: userId } : null,
+      cookieUserId ? { Usersid: cookieUserId } : null,
+    ].filter(Boolean) as any[]
 
-    return null
+    if (orConditions.length === 0) return null
+
+    const user = await prisma.user.findFirst({
+      where: { OR: orConditions },
+      select: { Usersid: true, universityId: true, name: true, email: true },
+    })
+
+    return user
   } catch (err) {
     console.error('Error fetching teacher session:', err)
     return null
   }
 }
 
-// 2. ฟังก์ชันตรวจเช็คคุณสมบัตินักเรียนเทียบกับเกณฑ์ (Criteria) ของแต่ละสาขาแบบ Dynamic
 function evaluateApplicant(app: any) {
   const student = app.student || {}
   const scores = student.tcasScores || {}
@@ -124,7 +124,8 @@ function evaluateApplicant(app: any) {
 }
 
 export default async function ApplicantsPage() {
-  const universityId = await getTeacherUniversityId()
+  const teacher = await getTeacherInfo()
+  const universityId = teacher?.universityId
 
   const applications = await prisma.application.findMany({
     where: universityId
@@ -149,126 +150,31 @@ export default async function ApplicantsPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // ป้ายแสดงสถานะ (ผ่านเกณฑ์ / ไม่ผ่านเกณฑ์ / ยกเลิก)
-  const renderStatusBadge = (status: string, isEligibleByCriteria: boolean) => {
-    if (status === 'CANCELLED') {
-      return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">ยกเลิกการสมัคร</span>
+  const formattedApplications = applications.map((app: any) => {
+    const evalRes = evaluateApplicant(app)
+    const appliedAt =
+      new Date(app.createdAt).toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) + ' น.'
+
+    return {
+      id: app.Applicationsid,
+      studentName: app.student?.name || 'ไม่ระบุชื่อ',
+      studentCode: app.student?.studentCode || app.student?.nationalId || '-',
+      programName: app.criteria?.programName || '-',
+      faculty: app.criteria?.university?.faculty || '-',
+      department: app.criteria?.university?.department || '-',
+      status: app.status,
+      appliedAt,
+      gpax: app.student?.gpax,
+      evalRes,
     }
+  })
 
-    if (!isEligibleByCriteria) {
-      return <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">ไม่ผ่านเกณฑ์</span>
-    }
-
-    return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">ผ่านเกณฑ์</span>
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">รายชื่อผู้สมัคร</h1>
-        <p className="text-xs text-slate-500">
-          ตรวจสอบคะแนน เอกสาร และผลการคัดกรองคุณสมบัติเฉพาะสังกัดของคุณ
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        {applications.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
-            ยังไม่มีข้อมูลผู้สมัครในระบบ
-          </div>
-        ) : (
-          applications.map((app) => {
-            const evalRes = evaluateApplicant(app)
-
-            // จัดรูปแบบวันที่และเวลาที่สมัคร
-            const appliedAt = new Date(app.createdAt).toLocaleString('th-TH', {
-              timeZone: 'Asia/Bangkok',
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            }) + ' น.'
-
-            return (
-              <div
-                key={app.Applicationsid}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition space-y-3"
-              >
-                {/* 📌 ย้ายเวลาที่สมัครมาไว้ที่มุมซ้ายบน */}
-                <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-100 pb-2">
-                  <span className="flex items-center gap-1.5 text-slate-500 text-[11px] bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 font-medium">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    สมัครเมื่อ: {appliedAt}
-                  </span>
-                  <span className="font-mono text-[11px] text-slate-500">
-                    รหัสการสมัคร: {app.Applicationsid}
-                  </span>
-                </div>
-
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
-                  {/* ฝั่งซ้าย: ข้อมูลผู้สมัคร และ สาขาที่สมัคร */}
-                  <div className="flex items-center gap-3.5 flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-[#07382B] flex items-center justify-center font-bold text-sm flex-shrink-0">
-                      {app.student.name?.[0] || 'น'}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-sm">{app.student.name}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {app.criteria.programName}{' '}
-                        <span className="text-slate-400">
-                          ({app.criteria.university?.faculty || '-'} {app.criteria.university?.department || '-'})
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* ฝั่งขวา: แสดงคะแนนสไตล์ Badge + Badge สถานะ */}
-                  <div className="flex flex-wrap lg:flex-nowrap items-center justify-end gap-3">
-                    <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-xl">
-                      {evalRes.activeScoreChecks.map((check, idx) => (
-                        <div
-                          key={idx}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors ${
-                            check.isFail
-                              ? 'bg-rose-50 border-rose-200 text-rose-700'
-                              : 'bg-slate-50 border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          <span className="text-[11px] opacity-80">{check.label}</span>
-                          <span className={`font-bold ${check.isFail ? 'text-rose-700' : 'text-slate-900'}`}>
-                            {check.studentVal !== null ? check.studentVal.toFixed(2) : '-'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex-shrink-0">
-                      {renderStatusBadge(app.status, evalRes.isEligible)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* กล่องแสดงเหตุผลที่ไม่ผ่านเกณฑ์ */}
-                {evalRes.failedReasons.length > 0 && app.status !== 'CANCELLED' && (
-                  <div className="pt-2.5 border-t border-slate-100 flex items-start gap-2 text-xs bg-rose-50/70 p-3 rounded-xl border border-rose-100 text-rose-700">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-500 mt-0.5" />
-                    <div className="leading-relaxed">
-                      <span className="font-bold text-rose-800">เหตุผลที่ไม่ผ่านเกณฑ์: </span>
-                      {evalRes.failedReasons.map((reason, idx) => (
-                        <span key={idx}>
-                          {idx > 0 && <span className="mx-1.5 text-rose-300">|</span>}
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
-      </div>
-    </div>
-  )
+  return <ApplicantsClient initialApplications={formattedApplications} />
 }

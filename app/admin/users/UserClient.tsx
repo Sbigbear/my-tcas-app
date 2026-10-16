@@ -30,19 +30,18 @@ export default function UserListClient({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [selectedRole, setSelectedRole] = useState<'OFFICER' | 'ADMIN'>('OFFICER')
-  const [activeTab, setActiveTab] = useState<'ALL' | 'OFFICER' | 'STUDENT' | 'ADMIN'>('ALL')
+  const [selectedRole, setSelectedRole] = useState<'OFFICER' | 'TEACHER' | 'ADMIN'>('OFFICER')
+  const [activeTab, setActiveTab] = useState<'ALL' | 'OFFICER' | 'TEACHER' | 'STUDENT' | 'ADMIN'>('ALL')
 
-  // 📌 ตัวสลับโหมดการเลือก/กรอก คณะ-สาขาวิชา: 'SELECT' (เลือกที่มี) หรือ 'CUSTOM' (กรอกเอง)
   const [univMode, setUnivMode] = useState<'SELECT' | 'CUSTOM'>('CUSTOM')
 
-  // คำนวณจำนวนผู้ใช้งานแต่ละประเภท
+  // คำนวณจำนวนผู้ใช้งาน
   const countAll = initialUsers.length
   const countOfficers = initialUsers.filter((u) => u.role === 'OFFICER').length
+  const countTeachers = initialUsers.filter((u) => u.role === 'TEACHER').length
   const countStudents = initialUsers.filter((u) => u.role === 'STUDENT').length
   const countAdmins = initialUsers.filter((u) => u.role === 'ADMIN').length
 
-  // กรองผู้ใช้งานตามคำค้นหา + แท็บที่เลือก
   const filteredUsers = initialUsers.filter((u) => {
     const matchesSearch =
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -59,6 +58,8 @@ export default function UserListClient({
       case 'STUDENT':
         return 'นักเรียน'
       case 'OFFICER':
+        return 'เจ้าหน้าที่คณะ'
+      case 'TEACHER':
         return 'อาจารย์'
       case 'ADMIN':
         return 'ผู้ดูแลระบบ'
@@ -97,11 +98,7 @@ export default function UserListClient({
           }`}
         >
           ทั้งหมด
-          <span
-            className={`px-2 py-0.5 text-[10px] rounded-full ${
-              activeTab === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}
-          >
+          <span className={`px-2 py-0.5 text-[10px] rounded-full ${activeTab === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
             {countAll}
           </span>
         </button>
@@ -115,13 +112,24 @@ export default function UserListClient({
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          👨‍🏫 อาจารย์
-          <span
-            className={`px-2 py-0.5 text-[10px] rounded-full ${
-              activeTab === 'OFFICER' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}
-          >
+          🏛️ เจ้าหน้าที่คณะ
+          <span className={`px-2 py-0.5 text-[10px] rounded-full ${activeTab === 'OFFICER' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
             {countOfficers}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('TEACHER')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 'TEACHER'
+              ? 'bg-[#07382B] text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          👨‍🏫 อาจารย์
+          <span className={`px-2 py-0.5 text-[10px] rounded-full ${activeTab === 'TEACHER' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+            {countTeachers}
           </span>
         </button>
 
@@ -135,11 +143,7 @@ export default function UserListClient({
           }`}
         >
           🎓 นักเรียน
-          <span
-            className={`px-2 py-0.5 text-[10px] rounded-full ${
-              activeTab === 'STUDENT' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}
-          >
+          <span className={`px-2 py-0.5 text-[10px] rounded-full ${activeTab === 'STUDENT' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
             {countStudents}
           </span>
         </button>
@@ -154,11 +158,7 @@ export default function UserListClient({
           }`}
         >
           🛡️ ผู้ดูแลระบบ
-          <span
-            className={`px-2 py-0.5 text-[10px] rounded-full ${
-              activeTab === 'ADMIN' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}
-          >
+          <span className={`px-2 py-0.5 text-[10px] rounded-full ${activeTab === 'ADMIN' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
             {countAdmins}
           </span>
         </button>
@@ -175,7 +175,7 @@ export default function UserListClient({
         />
       </div>
 
-      {/* ตารางแสดงรายชื่อผู้ใช้งาน */}
+      {/* ตารางแสดงรายชื่อ */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-xs text-slate-400 border-b border-slate-100">
@@ -183,7 +183,7 @@ export default function UserListClient({
               <th className="p-4">ผู้ใช้งาน</th>
               <th className="p-4">อีเมล</th>
               <th className="p-4">บทบาท</th>
-              <th className="p-4">สาขาวิชาสังกัด</th>
+              <th className="p-4">สังกัด</th>
               <th className="p-4">สถานะ</th>
               <th className="p-4 text-center">จัดการ</th>
             </tr>
@@ -211,6 +211,8 @@ export default function UserListClient({
                         user.role === 'ADMIN'
                           ? 'bg-purple-50 text-purple-700'
                           : user.role === 'OFFICER'
+                          ? 'bg-emerald-50 text-emerald-800'
+                          : user.role === 'TEACHER'
                           ? 'bg-blue-50 text-blue-700'
                           : 'bg-amber-50 text-amber-700'
                       }`}
@@ -283,7 +285,7 @@ export default function UserListClient({
                   name="email"
                   type="email"
                   required
-                  placeholder="teacher@ku.ac.th"
+                  placeholder="user@ku.th"
                   className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B] text-xs"
                 />
               </div>
@@ -308,34 +310,34 @@ export default function UserListClient({
                 <select
                   name="role"
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as 'OFFICER' | 'ADMIN')}
+                  onChange={(e) => setSelectedRole(e.target.value as 'OFFICER' | 'TEACHER' | 'ADMIN')}
                   className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B] bg-white cursor-pointer text-xs"
                 >
-                  <option value="OFFICER">อาจารย์</option>
-                  <option value="ADMIN">ผู้ดูแลระบบ</option>
+                  <option value="OFFICER">เจ้าหน้าที่ประจำคณะ (OFFICER)</option>
+                  <option value="TEACHER">อาจารย์/กรรมการคัดเลือก (TEACHER)</option>
+                  <option value="ADMIN">ผู้ดูแลระบบ (ADMIN)</option>
                 </select>
               </div>
 
-              {/* แสดงส่วนกรอกข้อมูลเฉพาะเมื่อเลือกบทบาทเป็น "อาจารย์" (OFFICER) */}
-              {selectedRole === 'OFFICER' && (
+              {/* ส่วนกรอกคณะ/สาขาตามบทบาท */}
+              {(selectedRole === 'OFFICER' || selectedRole === 'TEACHER') && (
                 <>
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      รหัสอาจารย์ (Teacher ID)
+                      รหัสประจำตัว {selectedRole === 'TEACHER' ? 'อาจารย์' : 'เจ้าหน้าที่'}
                     </label>
                     <input
                       name="teacherId"
                       type="text"
-                      placeholder="เช่น T67014"
+                      placeholder={selectedRole === 'TEACHER' ? 'เช่น T67014' : 'เช่น O67001'}
                       className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B] text-xs font-mono"
                     />
                   </div>
 
-                  {/* 📌 สวิตช์เลือกระหว่าง "เลือกจากรายการ" หรือ "กรอกเอง" */}
                   <div className="space-y-2 pt-2 border-t">
                     <div className="flex items-center justify-between">
                       <label className="block font-semibold text-slate-700">
-                        สังกัดคณะ / สาขาวิชา <span className="text-red-500">*</span>
+                        สังกัด{selectedRole === 'OFFICER' ? 'คณะ' : 'คณะ / สาขาวิชา'} <span className="text-red-500">*</span>
                       </label>
                       <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-[11px]">
                         <button
@@ -372,10 +374,10 @@ export default function UserListClient({
                           required={univMode === 'SELECT'}
                           className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#07382B] bg-white cursor-pointer text-xs"
                         >
-                          <option value="">-- เลือกคณะ / สาขาวิชาสังกัด --</option>
+                          <option value="">-- เลือกรายการสังกัด --</option>
                           {universities.map((u) => (
                             <option key={u.Universitiesid} value={u.Universitiesid}>
-                              {u.faculty} - {u.department} ({u.campus})
+                              {u.faculty} {u.department !== '-' && u.department !== 'ประจำคณะ' ? u.department : ''} ({u.campus})
                             </option>
                           ))}
                         </select>
@@ -395,18 +397,21 @@ export default function UserListClient({
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                            สาขาวิชา <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            name="department"
-                            type="text"
-                            required={univMode === 'CUSTOM'}
-                            placeholder="เช่น ภาษาเกาหลี, วิศวกรรมซอฟต์แวร์"
-                            className="w-full border border-slate-200 bg-white rounded-lg p-2 outline-none focus:border-[#07382B] text-xs"
-                          />
-                        </div>
+                        {/* 📌 ช่องสาขาวิชา: แสดงเฉพาะเมื่อเลือกบทบาทเป็น "อาจารย์" (TEACHER) เท่านั้น */}
+                        {selectedRole === 'TEACHER' && (
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                              สาขาวิชา <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              name="department"
+                              type="text"
+                              required={univMode === 'CUSTOM' && selectedRole === 'TEACHER'}
+                              placeholder="เช่น ภาษาเกาหลี, วิศวกรรมซอฟต์แวร์"
+                              className="w-full border border-slate-200 bg-white rounded-lg p-2 outline-none focus:border-[#07382B] text-xs"
+                            />
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-600 mb-1">

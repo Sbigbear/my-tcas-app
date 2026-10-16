@@ -13,13 +13,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // 📌 ค้นหาอาจารย์/เจ้าหน้าที่จาก email
+    // 📌 ค้นหาผู้ใช้จาก email และระบุ role ต้องเป็น TEACHER เท่านั้น
     const teacher = await prisma.user.findFirst({
       where: {
         email: username,
-        role: {
-          in: ['OFFICER'],
-        },
+        role: 'TEACHER',
       },
     })
 
@@ -41,10 +39,11 @@ export async function POST(request: Request) {
         name: teacher.name,
         email: teacher.email,
         role: teacher.role,
+        universityId: teacher.universityId,
       },
     })
 
-    // 📌 บันทึก Cookie ให้ครอบคลุมทุกคีย์เพื่อให้ Server อ่านค่าได้ง่าย
+    // 📌 บันทึก Cookie สำหรับใช้ตรวจสอบสิทธิ์ในฝั่ง Server
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

@@ -3,53 +3,78 @@ import LogsClient, { LogEntry } from './LogsClient'
 
 export default async function LogsPage() {
   try {
-    // ดึงข้อมูลประวัติการทำงานจากตาราง AuditLog พร้อม Join ข้อมูลผู้ใช้
     const logsData = await prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 100, // ดึง 100 รายการล่าสุด
+      take: 100,
       include: {
-        user: true,    // ดึงข้อมูล User (ADMIN / OFFICER)
-        student: true, // ดึงข้อมูล Student (STUDENT)
+        user: true,
+        student: true,
       },
     })
 
-    const formattedLogs: LogEntry[] = logsData.map((log) => {
-      // 1. ระบุชื่อผู้ดำเนินการ (User หรือ Student)
-      const userName = log.user?.name || log.student?.name || 'ระบบ'
+    const formattedLogs: LogEntry[] = logsData.map((log: any) => {
+      const userName = log.performedBy || log.user?.name || (log.student ? `นักเรียน: ${log.student.name}` : 'ระบบ')
 
-      // 2. ระบุบทบาท (ADMIN, OFFICER, STUDENT, SYSTEM)
-      let userRole = 'SYSTEM'
-      if (log.user) {
-        userRole = log.user.role
-      } else if (log.student) {
-        userRole = 'STUDENT'
+      let userRole = log.role || 'SYSTEM'
+      if (!log.role) {
+        if (log.user) {
+          userRole = log.user.role
+        } else if (log.student) {
+          userRole = 'STUDENT'
+        }
       }
 
-      // 3. จำแนกประเภทการกรอง (Type) จากข้อความ Action
+      // 📌 แมปประเภทหมวดหมู่ Log ให้แสดงในแท็บ "หลักสูตร" อย่างแม่นยำ
       let logType: LogEntry['type'] = 'system'
-      const actionText = log.action.toLowerCase()
+      const actionText = (log.action || '').toLowerCase()
+      const detailsText = (log.details || '').toLowerCase()
 
-      if (actionText.includes('เข้าสู่ระบบ') || actionText.includes('login') || actionText.includes('logout')) {
-        logType = 'auth'
-      } else if (actionText.includes('หลักสูตร') || actionText.includes('เกณฑ์') || actionText.includes('course')) {
+      if (
+        actionText.includes('confirm') ||
+        actionText.includes('pass') ||
+        detailsText.includes('ผ่านการคัดเลือก') ||
+        detailsText.includes('ยืนยันผล')
+      ) {
+        logType = 'passed_students'
+      } else if (
+        actionText.includes('course') ||
+        actionText.includes('criteria') ||
+        actionText.includes('program') ||
+        actionText.includes('หลักสูตร') ||
+        actionText.includes('เกณฑ์') ||
+        detailsText.includes('หลักสูตร')
+      ) {
         logType = 'course'
-      } else if (actionText.includes('ผู้ใช้') || actionText.includes('อนุมัติ') || actionText.includes('user')) {
+      } else if (
+        actionText.includes('เข้าสู่ระบบ') ||
+        actionText.includes('login') ||
+        actionText.includes('logout')
+      ) {
+        logType = 'auth'
+      } else if (
+        actionText.includes('ผู้ใช้') ||
+        actionText.includes('user') ||
+        actionText.includes('teacher') ||
+        actionText.includes('officer')
+      ) {
         logType = 'user'
       }
 
       return {
-        id: log.AuditLogsid,
+        id: log.AuditLogsid || log.SystemLogsid || log.id,
         action: log.action,
         user: userName,
         role: userRole,
         details: log.details || '-',
-        timestamp: new Date(log.createdAt).toLocaleString('th-TH', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }) + ' น.',
+        timestamp:
+          new Date(log.createdAt).toLocaleString('th-TH', {
+            timeZone: 'Asia/Bangkok',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }) + ' น.',
         type: logType,
       }
     })

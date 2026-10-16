@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, RefreshCw, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, X, RefreshCw, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Building } from 'lucide-react'
+
+interface DepartmentOption {
+  universityId: string
+  departmentName: string
+}
 
 interface CriteriaState {
   active: boolean
@@ -12,7 +17,13 @@ interface CriteriaState {
   step: string
 }
 
-export default function AddCourseModal({ universityId }: { universityId: string | null }) {
+export default function AddCourseModal({
+  facultyName,
+  departments,
+}: {
+  facultyName?: string
+  departments?: DepartmentOption[]
+}) {
   const router = useRouter()
   const [isOpenModal, setIsOpenModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -20,7 +31,8 @@ export default function AddCourseModal({ universityId }: { universityId: string 
   const [activeTab, setActiveTab] = useState<'basic' | 'gpa' | 'tgas_tpat' | 'alevel'>('basic')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // 1. ข้อมูลพื้นฐาน
+  // 1. ข้อมูลพื้นฐาน (พิมพ์กรอกชื่อสาขาวิชาเอง)
+  const [departmentName, setDepartmentName] = useState('')
   const [criteriaId, setCriteriaId] = useState('')
   const [programName, setProgramName] = useState('')
   const [capacity, setCapacity] = useState('')
@@ -88,11 +100,14 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     }))
   }
 
-  // ตรวจสอบความถูกต้องของข้อมูลเฉพาะหน้าที่ระบุ
   const validateTab = (tabToValidate = activeTab): boolean => {
     setErrorMessage(null)
 
     if (tabToValidate === 'basic') {
+      if (!departmentName.trim()) {
+        setErrorMessage('กรุณากรอกชื่อสาขาวิชาที่รับผิดชอบ')
+        return false
+      }
       if (!criteriaId.trim()) {
         setErrorMessage('กรุณากรอกรหัสเกณฑ์ / รหัสหลักสูตร (เช่น QH800-67)')
         return false
@@ -135,7 +150,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     return true
   }
 
-  // เลื่อนไปหน้าถัดไป
   const handleNext = () => {
     if (!validateTab(activeTab)) return
 
@@ -144,7 +158,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     else if (activeTab === 'tgas_tpat') setActiveTab('alevel')
   }
 
-  // ย้อนกลับ
   const handleBack = () => {
     setErrorMessage(null)
     if (activeTab === 'alevel') setActiveTab('tgas_tpat')
@@ -152,24 +165,17 @@ export default function AddCourseModal({ universityId }: { universityId: string 
     else if (activeTab === 'gpa') setActiveTab('basic')
   }
 
-  // เปิด Modal ยืนยันเฉพาะเมื่อกดบันทึกในหน้าสุดท้ายเท่านั้น
   const handleOpenConfirmModal = () => {
     if (!validateTab('alevel')) return
     setShowConfirmModal(true)
   }
 
-  // ฟังก์ชันยิง API บันทึกข้อมูลจริง
   const executeSubmit = async () => {
     setShowConfirmModal(false)
 
-    if (!universityId) {
-      setErrorMessage('ไม่พบข้อมูลรหัสสาขา (universityId) กรุณาล็อกอินใหม่อีกครั้ง')
-      return
-    }
-
     const payload: Record<string, any> = {
       Program_Criteriaid: criteriaId.trim(),
-      universityId,
+      departmentName: departmentName.trim(),
       programName,
       capacity: Number(capacity),
       isOpen,
@@ -191,7 +197,7 @@ export default function AddCourseModal({ universityId }: { universityId: string 
 
     setIsLoading(true)
     try {
-      const res = await fetch('/api/teacher/criteria', {
+      const res = await fetch('/api/officer/criteria', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -200,6 +206,11 @@ export default function AddCourseModal({ universityId }: { universityId: string 
       const data = await res.json()
       if (res.ok && data.success) {
         setIsOpenModal(false)
+        setDepartmentName('')
+        setCriteriaId('')
+        setProgramName('')
+        setCapacity('')
+        setAdditionals('')
         router.refresh()
       } else {
         setErrorMessage(data.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
@@ -272,7 +283,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
             
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b bg-slate-50">
               <div>
                 <h3 className="text-base font-bold text-slate-900">เพิ่มหลักสูตร / กำหนดเกณฑ์ TCAS</h3>
@@ -283,7 +293,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               </button>
             </div>
 
-            {/* Error Message Bar */}
             {errorMessage && (
               <div className="bg-red-50 border-l-4 border-red-500 p-3 text-xs text-red-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -291,7 +300,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               </div>
             )}
 
-            {/* Steps Navigation Bar */}
             <div className="grid grid-cols-4 border-b bg-slate-100 text-xs font-medium text-slate-600 px-4 pt-2 gap-1 text-center">
               <button
                 type="button"
@@ -339,12 +347,25 @@ export default function AddCourseModal({ universityId }: { universityId: string 
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              
-              {/* PAGE 1: ข้อมูลหลักสูตร */}
               {activeTab === 'basic' && (
                 <div className="space-y-4">
+                  
+                  {/* 📌 ช่องสำหรับพิมพ์ชื่อสาขาวิชาเองโดยตรง (ไม่มี Dropdown) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Building className="w-4 h-4 text-[#0A6B50]" />
+                      สาขาวิชาที่รับผิดชอบ <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="กรอกชื่อสาขาวิชา เช่น วิศวกรรมซอฟต์แวร์, วิทยาการคอมพิวเตอร์"
+                      value={departmentName}
+                      onChange={(e) => setDepartmentName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 bg-white"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       รหัสเกณฑ์ / รหัสหลักสูตร <span className="text-red-500">*</span> <span className="text-slate-400 font-normal">(เช่น QH800-67)</span>
@@ -356,16 +377,13 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                       onChange={(e) => setCriteriaId(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 uppercase font-mono"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      รูปแบบ: QH (รหัสภาค) 800 (รหัสสาขา) 67 (ปีการศึกษา)
-                    </p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อหลักสูตร / โครงการ <span className="text-red-500">*</span></label>
                     <input
                       type="text"
-                      placeholder="เช่น ภาคพิเศษ, โครงการเรียนดี, วิศวกรรมซอฟต์แวร์"
+                      placeholder="เช่น ภาคปกติ, ภาคพิเศษ, โครงการเรียนดี"
                       value={programName}
                       onChange={(e) => setProgramName(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800"
@@ -407,21 +425,18 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                 </div>
               )}
 
-              {/* PAGE 2: เกรดเฉลี่ย (GPAX & 8 กลุ่มสาระ) */}
               {activeTab === 'gpa' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {Object.keys(gpaFields).map((key) => renderCriterionRow(gpaFields, setGpaFields, key))}
                 </div>
               )}
 
-              {/* PAGE 3: TGAT / TPAT */}
               {activeTab === 'tgas_tpat' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {Object.keys(tpatFields).map((key) => renderCriterionRow(tpatFields, setTpatFields, key))}
                 </div>
               )}
 
-              {/* PAGE 4: A-Level */}
               {activeTab === 'alevel' && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -444,10 +459,8 @@ export default function AddCourseModal({ universityId }: { universityId: string 
                   )}
                 </div>
               )}
-
             </div>
 
-            {/* Modal Footer Bar */}
             <div className="flex items-center justify-between p-5 border-t bg-slate-50">
               {activeTab === 'basic' ? (
                 <button
@@ -499,7 +512,6 @@ export default function AddCourseModal({ universityId }: { universityId: string 
         </div>
       )}
 
-      {/* Modal ป๊อปอัพยืนยันการบันทึกข้อมูล */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
