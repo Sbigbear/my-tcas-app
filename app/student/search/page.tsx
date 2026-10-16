@@ -40,7 +40,7 @@ export default async function StudentSearchPage() {
     orderBy: { createdAt: 'desc' },
   })
 
-  // 📌 ประมวลผลและซิงก์สั่งปิดรับสมัครลง MySQL ทันทีที่เต็มโควตา
+  // 📌 ซิงก์สถานะลง MySQL แบบ 2 ทาง (Auto Close เมื่อเต็ม & Auto Re-open เมื่อโควตากลับมาว่าง)
   const formattedCourses = await Promise.all(
     rawCourses.map(async (c) => {
       // นับจำนวนผู้สมัครที่ไม่ถูกยกเลิก (CANCELLED)
@@ -52,14 +52,23 @@ export default async function StudentSearchPage() {
       // ตรวจสอบว่าผู้สมัครเต็มจำนวนโควตาแล้วหรือไม่
       const isFull = c.capacity > 0 && totalAppliedCount >= c.capacity
 
-      // 📌 หากเต็มแล้ว แต่ใน DB ยังคงเป็น isOpen = true -> อัปเดตลง MySQL ให้เป็น false ทันที
       let currentIsOpen = c.isOpen
+
+      // 1. ถ้าคนสมัครเต็มโควตา -> สั่งปิดรับสมัคร (isOpen = false)
       if (isFull && c.isOpen) {
         await prisma.programCriteria.update({
           where: { Program_Criteriaid: c.Program_Criteriaid },
           data: { isOpen: false },
         })
         currentIsOpen = false
+      }
+      // 2. ถ้าโควตากลับมาว่าง (เช่น 0/1) แต่ DB ปิดอยู่ -> สั่งเปิดรับสมัครคืน (isOpen = true) อัตโนมัติ!
+      else if (!isFull && !c.isOpen && c.capacity > 0) {
+        await prisma.programCriteria.update({
+          where: { Program_Criteriaid: c.Program_Criteriaid },
+          data: { isOpen: true },
+        })
+        currentIsOpen = true
       }
 
       // ตรวจสอบว่านักเรียนคนนี้สมัครหลักสูตรนี้ไปแล้วหรือยัง

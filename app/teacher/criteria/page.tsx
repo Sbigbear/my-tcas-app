@@ -111,7 +111,7 @@ export default async function TeacherCriteriaPage() {
       })
     : []
 
-  // 📌 ตรวจสอบและอัปเดตสั่งปิดรับสมัคร (isOpen = false) ลงใน MySQL ทันทีที่ผู้สมัครเต็มโควตา
+  // 📌 ซิงก์สถานะลง MySQL แบบ 2 ทาง (Auto Close เมื่อเต็ม & Auto Re-open เมื่อโควตากลับมาว่าง)
   const criteriaList = await Promise.all(
     rawCriteriaList.map(async (item) => {
       const appliedCount = (item.applications || []).filter(
@@ -119,21 +119,30 @@ export default async function TeacherCriteriaPage() {
       ).length
 
       const isFull = item.capacity > 0 && appliedCount >= item.capacity
+      let currentIsOpen = item.isOpen
 
-      // 📌 หากผู้สมัครเต็มแล้ว และใน DB ยังคงเป็น isOpen = true
-      // สั่งปิดรับสมัครลง MySQL ทันทีที่ต้นทาง!
+      // 1. ถ้าคนสมัครเต็มโควตา -> สั่งปิดรับสมัคร (isOpen = false)
       if (isFull && item.isOpen) {
         await prisma.programCriteria.update({
           where: { Program_Criteriaid: item.Program_Criteriaid },
           data: { isOpen: false },
         })
-        item.isOpen = false
+        currentIsOpen = false
+      }
+      // 2. ถ้าโควตากลับมาว่าง (เช่น 0/1) แต่ DB ปิดอยู่ -> สั่งเปิดรับสมัครคืน (isOpen = true) อัตโนมัติ!
+      else if (!isFull && !item.isOpen && item.capacity > 0) {
+        await prisma.programCriteria.update({
+          where: { Program_Criteriaid: item.Program_Criteriaid },
+          data: { isOpen: true },
+        })
+        currentIsOpen = true
       }
 
       return {
         ...item,
         appliedCount,
         isFull,
+        isOpen: currentIsOpen,
       }
     })
   )
