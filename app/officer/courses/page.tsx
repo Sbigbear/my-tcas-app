@@ -51,19 +51,23 @@ export default async function OfficerCoursesPage() {
   const officer = await getLoggedInOfficer()
   const facultyName = officer?.university?.faculty || ''
 
-  // 📌 ดึงหลักสูตรทั้งหมดภายใต้คณะของเจ้าหน้าที่ (ถ้าเจ้าหน้าที่ยังไม่มีคณะผูกไว้ ให้แสดงทั้งหมดในระบบ)
-  const courses = await prisma.programCriteria.findMany({
-    where: facultyName
-      ? { university: { faculty: facultyName } }
-      : {},
-    include: {
-      university: true,
-      applications: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  })
+  // 📌 กรองเฉพาะหลักสูตรที่สังกัดคณะเดียวกับเจ้าหน้าที่เท่านั้น (ห้ามใช้เงื่อนไขว่าง {} ที่ดึงข้อมูลทุกคณะ)
+  const courses = facultyName
+    ? await prisma.programCriteria.findMany({
+        where: {
+          university: {
+            faculty: facultyName,
+          },
+        },
+        include: {
+          university: true,
+          applications: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    : []
 
-  // ดึงรายการตัวเลือกสังกัดคณะ/สาขาที่มีทั้งหมดในระบบส่งให้ Modal แนะนำ
+  // ดึงรายการตัวเลือกสาขาวิชาทั้งหมดในระบบส่งให้ Modal
   const allUnivs = await prisma.university.findMany({
     select: {
       Universitiesid: true,
@@ -88,7 +92,9 @@ export default async function OfficerCoursesPage() {
           <h1 className="text-2xl font-bold text-slate-900">จัดการหลักสูตรและเกณฑ์การรับสมัคร</h1>
           <p className="text-xs text-slate-500">
             กำหนดหลักสูตร จำนวนรับ และเกณฑ์คะแนนขั้นต่ำสำหรับอาจารย์ใช้คัดเลือก สังกัด{' '}
-            <span className="font-bold text-[#07382B]">{facultyName || 'ทุกสังกัดในระบบ'}</span>
+            <span className="font-bold text-[#07382B]">
+              {facultyName ? `คณะ${facultyName}` : 'ยังไม่ได้ระบุคณะสังกัด'}
+            </span>
           </p>
         </div>
 
@@ -96,9 +102,13 @@ export default async function OfficerCoursesPage() {
       </div>
 
       <div className="space-y-4">
-        {courses.length === 0 ? (
+        {!facultyName ? (
+          <div className="p-12 text-center bg-white rounded-2xl border border-amber-200 bg-amber-50/30 text-amber-800 text-xs">
+            บัญชีผู้ใช้นี้ยังไม่ได้ผูกกับคณะสังกัด กรุณากดปุ่ม <span className="font-bold">"+ เพิ่มหลักสูตรใหม่"</span> เพื่อระบุคณะและสาขาแรกของระบบ
+          </div>
+        ) : courses.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
-            ยังไม่มีรายการหลักสูตรที่เปิดรับสมัคร
+            ยังไม่มีรายการหลักสูตรที่เปิดรับสมัครในคณะ{facultyName}
           </div>
         ) : (
           courses.map((course) => {
@@ -143,7 +153,7 @@ export default async function OfficerCoursesPage() {
                     </div>
                     <p className="text-xs text-slate-500 mt-1.5">
                       {course.university.faculty}{' '}
-                      <span className="font-bold text-slate-700">{course.university.department}</span> (วิทยาเขต{course.university.campus})
+                      <span className="font-bold text-slate-700">{course.university.department}</span> ({course.university.campus})
                     </p>
                   </div>
 

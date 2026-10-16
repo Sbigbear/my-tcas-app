@@ -5,7 +5,6 @@ import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
 import { revalidatePath } from 'next/cache'
 
-// ดึงข้อมูลเจ้าหน้าที่คณะที่ล็อกอินอยู่
 async function getOfficerInfo() {
   try {
     const cookieStore = await cookies()
@@ -19,9 +18,7 @@ async function getOfficerInfo() {
         const decoded = jwt.decode(token) as any
         userEmail = decoded?.email || decoded?.userEmail
         userId = decoded?.id || decoded?.userId || decoded?.sub
-      } catch (e) {
-        console.error('JWT Decode Error:', e)
-      }
+      } catch (e) {}
     }
 
     if (!userEmail) {
@@ -41,114 +38,131 @@ async function getOfficerInfo() {
 
     if (orConditions.length === 0) return null
 
-    const user = await prisma.user.findFirst({
+    return await prisma.user.findFirst({
       where: { OR: orConditions },
       include: { university: true },
     })
-
-    return user
   } catch (err) {
-    console.error('Error getting officer info:', err)
     return null
   }
 }
 
-// 📌 ฟังก์ชันสร้างอาจารย์ประจำสาขาในคณะ
 export async function createTeacherData(formData: FormData) {
-  const officer = await getOfficerInfo()
-  if (!officer || !officer.university) {
-    throw new Error('ไม่พบสิทธิ์ของเจ้าหน้าที่ประจำคณะ')
-  }
+  try {
+    const officer = await getOfficerInfo()
 
-  const name = formData.get('name') as string
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const teacherId = formData.get('teacherId') as string
-  const department = (formData.get('department') as string)?.trim()
+    const name = (formData.get('name') as string)?.trim()
+    const email = (formData.get('email') as string)?.trim()
+    const password = (formData.get('password') as string)?.trim()
+    const teacherId = (formData.get('teacherId') as string)?.trim()
+    const department = (formData.get('department') as string)?.trim()
+    const formFaculty = (formData.get('faculty') as string)?.trim()
 
-  if (!name || !email || !password || !department) return
+    if (!name || !email || !password || !department) {
+      return { success: false, message: 'กรุณากรอกข้อมูลสำคัญให้ครบถ้วน' }
+    }
 
-  const faculty = officer.university.faculty
-  const campus = officer.university.campus || 'บางเขน'
+    // 📌 ยึดคณะที่ Client ส่งมาเป็นหลัก
+    let faculty = formFaculty || officer?.university?.faculty
 
-  // 1. ค้นหาว่าสาขาวิชานี้ในคณะนี้มีในตาราง University หรือยัง
-  let universityTarget = await prisma.university.findFirst({
-    where: {
-      faculty,
-      department,
-      campus,
-    },
-  })
+    if (!faculty) {
+      return { success: false, message: 'ไม่พบข้อมูลคณะสังกัด กรุณาระบุชื่อคณะ' }
+    }
 
-  // 2. ถ้ายังไม่มี ให้สร้างสาขาวิชาใหม่ในคณะนี้
-  if (!universityTarget) {
-    const univCount = await prisma.university.count()
-    const allUnivs = await prisma.university.findMany({ select: { Universitiesid: true } })
+    const campus = officer?.university?.campus || 'บางเขน'
 
-    const numbers = allUnivs
+    // 📌 ค้นหาสังกัดในตาราง University (คณะ + สาขา)
+    let universityTarget = await prisma.university.findFirst({
+      where: {
+        faculty: faculty,
+        department: department,
+      },
+    })
+
+    if (!universityTarget) {
+      const allUnivs = await prisma.university.findMany({ select: { Universitiesid: true } })
+      const numbers = allUnivs
+        .map((u) => {
+          const numStr = u.Universitiesid.replace('univ-', '')
+          const parsed = parseInt(numStr, 10)
+          return isNaN(parsed) ? null : parsed
+        })
+        .filter((n): n is number => n !== null)
+
+      const maxNum = numbers.length > 0 ? Math.max(...numbers) : allUnivs.length
+      const newUnivId = `univ-${String(maxNum + 1).padStart(3, '0')}`
+
+      universityTarget = await prisma.university.create({
+        data: {
+          Universitiesid: newUnivId,
+          code: `KU${String(maxNum + 1).padStart(3, '0')}`,
+          name: officer?.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์',
+          campus,
+          faculty,
+          department,
+        },
+      })
+    }
+
+    // 📌 สร้าง Usersid แบบหาตัวเลขสูงสุด + 1 ป้องกัน PK ชน
+    const allUsers = await prisma.user.findMany({ select: { Usersid: true } })
+    const userNumbers = allUsers
       .map((u) => {
-        const numStr = u.Universitiesid.replace('univ-', '')
-        const parsed = parseInt(numStr, 10)
-        return isNaN(parsed) ? null : parsed
+        const match = u.Usersid.match(/\d+/)
+        return match ? parseInt(match[0], 10) : null
       })
       .filter((n): n is number => n !== null)
 
-    const maxNum = numbers.length > 0 ? Math.max(...numbers) : univCount
-    const newUnivId = `univ-${String(maxNum + 1).padStart(3, '0')}`
-    const newCode = `KU${String(maxNum + 1).padStart(3, '0')}`
+    const maxUserNum = userNumbers.length > 0 ? Math.max(...userNumbers) : 0
+    const customUserId = `usr-t${String(maxUserNum + 1).padStart(2, '0')}`
 
-    universityTarget = await prisma.university.create({
+    const newTeacher = await prisma.user.create({
       data: {
-        Universitiesid: newUnivId,
-        code: newCode,
-        name: officer.university.name || 'มหาวิทยาลัยเกษตรศาสตร์',
-        campus,
-        faculty,
-        department,
+        Usersid: customUserId,
+        name,
+        email,
+        password,
+        role: 'TEACHER',
+        teacherId: teacherId || null,
+        universityId: universityTarget.Universitiesid,
       },
     })
+
+    revalidatePath('/officer/teachers')
+    revalidatePath('/admin/users')
+
+    return { success: true, data: newTeacher }
+  } catch (error: any) {
+    console.error('Create teacher error:', error)
+    if (error.code === 'P2002') {
+      return { success: false, message: 'อีเมลนี้ถูกใช้งานในระบบแล้ว' }
+    }
+    return { success: false, message: error.message || 'เกิดข้อผิดพลาดในการเพิ่มอาจารย์' }
   }
-
-  // 3. สร้าง User สำหรับอาจารย์ (role: TEACHER)
-  const userCount = await prisma.user.count()
-  const customUserId = `usr-t${String(userCount + 1).padStart(2, '0')}`
-
-  const newTeacher = await prisma.user.create({
-    data: {
-      Usersid: customUserId,
-      name,
-      email,
-      password,
-      role: 'TEACHER',
-      teacherId: teacherId || null,
-      universityId: universityTarget.Universitiesid,
-    },
-  })
-
-  // 4. บันทึก Audit Log
-  await prisma.auditLog.create({
-    data: {
-      action: 'CREATE_TEACHER',
-      details: `เจ้าหน้าที่คณะ (${officer.name}) เพิ่มอาจารย์ใหม่: ${name} (${department})`,
-      userId: officer.Usersid,
-    },
-  })
-
-  revalidatePath('/officer/teachers')
 }
 
-// 📌 ฟังก์ชันลบอาจารย์
+// 📌 Export ฟังก์ชันลบอาจารย์ให้เรียกใช้งานจาก Client ได้
 export async function deleteTeacherData(teacherUserId: string) {
-  const officer = await getOfficerInfo()
-  if (!officer) return
+  try {
+    const officer = await getOfficerInfo()
+    if (!officer) return { success: false, message: 'ไม่พบสิทธิ์ผู้ใช้งาน' }
 
-  await prisma.auditLog.deleteMany({
-    where: { userId: teacherUserId },
-  })
+    try {
+      await prisma.auditLog.deleteMany({
+        where: { userId: teacherUserId },
+      })
+    } catch (e) {}
 
-  await prisma.user.delete({
-    where: { Usersid: teacherUserId },
-  })
+    await prisma.user.deleteMany({
+      where: { Usersid: teacherUserId },
+    })
 
-  revalidatePath('/officer/teachers')
+    revalidatePath('/officer/teachers')
+    revalidatePath('/admin/users')
+
+    return { success: true, message: 'ลบข้อมูลอาจารย์เรียบร้อยแล้ว' }
+  } catch (error: any) {
+    console.error('Delete teacher error:', error)
+    return { success: false, message: error.message || 'เกิดข้อผิดพลาดในการลบ' }
+  }
 }

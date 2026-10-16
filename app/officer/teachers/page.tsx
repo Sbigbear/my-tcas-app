@@ -58,9 +58,32 @@ export default async function OfficerTeachersPage() {
     redirect('/login')
   }
 
-  const officerFaculty = officer.university?.faculty || ''
+  // 📌 1. ดึงชื่อคณะของเจ้าหน้าที่
+  let officerFaculty = officer.university?.faculty || ''
 
-  // ดึงอาจารย์เฉพาะที่อยู่ในคณะเดียวกับเจ้าหน้าที่คนนี้
+  if (!officerFaculty) {
+    const latestUniv = await prisma.university.findFirst({
+      where: { faculty: { not: '' } },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (latestUniv) {
+      officerFaculty = latestUniv.faculty
+
+      if (!officer.universityId) {
+        try {
+          await prisma.user.update({
+            where: { Usersid: officer.Usersid },
+            data: { universityId: latestUniv.Universitiesid },
+          })
+        } catch (e) {
+          console.error('Auto-link officer university error:', e)
+        }
+      }
+    }
+  }
+
+  // 📌 2. ดึงอาจารย์เฉพาะที่อยู่ในคณะเดียวกับเจ้าหน้าที่คนนี้
   const teachers = officerFaculty
     ? await prisma.user.findMany({
         where: {
@@ -76,7 +99,7 @@ export default async function OfficerTeachersPage() {
       })
     : []
 
-  // ดึงรายชื่อสาขาวิชาทั้งหมดในคณะนี้เพื่อนำไปทำ Dropdown ตัวเลือก
+  // 📌 3. ดึงรายชื่อสาขาวิชาทั้งหมดในคณะนี้เพื่อทำ Dropdown
   const facultyDepartments = officerFaculty
     ? await prisma.university.findMany({
         where: { faculty: officerFaculty },
@@ -87,7 +110,7 @@ export default async function OfficerTeachersPage() {
 
   const departmentsList = facultyDepartments
     .map((d) => d.department)
-    .filter((d) => d !== '-' && d !== 'ประจำคณะ')
+    .filter((d) => d && d !== '-' && d !== 'ประจำคณะ')
 
   const formattedTeachers = teachers.map((t) => ({
     id: t.Usersid,
@@ -102,6 +125,7 @@ export default async function OfficerTeachersPage() {
       initialTeachers={formattedTeachers}
       facultyName={officerFaculty}
       existingDepartments={departmentsList}
+      officerUserId={officer.Usersid}
     />
   )
 }

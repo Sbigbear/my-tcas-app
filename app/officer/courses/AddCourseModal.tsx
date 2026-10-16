@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, RefreshCw, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Building } from 'lucide-react'
+import { Plus, X, RefreshCw, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Building, ListFilter, PenTool } from 'lucide-react'
 
 interface DepartmentOption {
   universityId: string
+  facultyName?: string
   departmentName: string
+  campusName?: string
 }
 
 interface CriteriaState {
@@ -19,7 +21,7 @@ interface CriteriaState {
 
 export default function AddCourseModal({
   facultyName,
-  departments,
+  departments = [],
 }: {
   facultyName?: string
   departments?: DepartmentOption[]
@@ -31,13 +33,26 @@ export default function AddCourseModal({
   const [activeTab, setActiveTab] = useState<'basic' | 'gpa' | 'tgas_tpat' | 'alevel'>('basic')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // 1. ข้อมูลพื้นฐาน (พิมพ์กรอกชื่อสาขาวิชาเอง)
-  const [departmentName, setDepartmentName] = useState('')
+  // 1. โหมดการเลือกสาขา: 'select' = เลือกจากตัวเลือกที่มี, 'custom' = พิมพ์เอง
+  const [deptMode, setDeptMode] = useState<'select' | 'custom'>('select')
+  const [facultyInput, setFacultyInput] = useState(facultyName || '')
+  const [selectedDeptName, setSelectedDeptName] = useState('')
+  const [customDeptName, setCustomDeptName] = useState('')
+
   const [criteriaId, setCriteriaId] = useState('')
   const [programName, setProgramName] = useState('')
   const [capacity, setCapacity] = useState('')
   const [isOpen, setIsOpen] = useState(true)
   const [additionals, setAdditionals] = useState('')
+
+  useEffect(() => {
+    if (facultyName) setFacultyInput(facultyName)
+  }, [facultyName])
+
+  // กรองเฉพาะสาขาที่ตรงกับคณะสังกัด (ถ้ามี)
+  const filteredDepartments = departments.filter(
+    (d) => !facultyInput || d.facultyName === facultyInput || !d.facultyName
+  )
 
   // 2. เกรดเฉลี่ยขั้นต่ำ (GPAX & กลุ่มสาระ)
   const [gpaFields, setGpaFields] = useState<Record<string, CriteriaState>>({
@@ -100,12 +115,26 @@ export default function AddCourseModal({
     }))
   }
 
+  const getFinalDepartmentName = () => {
+    return deptMode === 'select' ? selectedDeptName : customDeptName
+  }
+
   const validateTab = (tabToValidate = activeTab): boolean => {
     setErrorMessage(null)
 
     if (tabToValidate === 'basic') {
-      if (!departmentName.trim()) {
-        setErrorMessage('กรุณากรอกชื่อสาขาวิชาที่รับผิดชอบ')
+      const activeDept = getFinalDepartmentName().trim()
+
+      if (!facultyInput.trim()) {
+        setErrorMessage('กรุณาระบุชื่อคณะสังกัด')
+        return false
+      }
+      if (!activeDept) {
+        setErrorMessage(
+          deptMode === 'select'
+            ? 'กรุณาเลือกสาขาวิชาจากตัวเลือก หรือเปลี่ยนเป็นสลับโหมดเพื่อพิมพ์เพิ่มสาขาใหม่'
+            : 'กรุณากรอกชื่อสาขาวิชาที่รับผิดชอบ'
+        )
         return false
       }
       if (!criteriaId.trim()) {
@@ -173,10 +202,13 @@ export default function AddCourseModal({
   const executeSubmit = async () => {
     setShowConfirmModal(false)
 
+    const finalDept = getFinalDepartmentName().trim()
+
     const payload: Record<string, any> = {
+      facultyName: facultyInput.trim(),
+      departmentName: finalDept,
       Program_Criteriaid: criteriaId.trim(),
-      departmentName: departmentName.trim(),
-      programName,
+      programName: programName.trim(),
       capacity: Number(capacity),
       isOpen,
       additionals: additionals.trim() || null,
@@ -206,7 +238,8 @@ export default function AddCourseModal({
       const data = await res.json()
       if (res.ok && data.success) {
         setIsOpenModal(false)
-        setDepartmentName('')
+        setSelectedDeptName('')
+        setCustomDeptName('')
         setCriteriaId('')
         setProgramName('')
         setCapacity('')
@@ -350,22 +383,81 @@ export default function AddCourseModal({
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {activeTab === 'basic' && (
                 <div className="space-y-4">
-                  
-                  {/* 📌 ช่องสำหรับพิมพ์ชื่อสาขาวิชาเองโดยตรง (ไม่มี Dropdown) */}
+                  {/* คณะสังกัด */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                       <Building className="w-4 h-4 text-[#0A6B50]" />
-                      สาขาวิชาที่รับผิดชอบ <span className="text-red-500">*</span>
+                      คณะสังกัด <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="กรอกชื่อสาขาวิชา เช่น วิศวกรรมซอฟต์แวร์, วิทยาการคอมพิวเตอร์"
-                      value={departmentName}
-                      onChange={(e) => setDepartmentName(e.target.value)}
+                      placeholder="ระบุชื่อคณะ เช่น กีฬา, ควท., คณะวิทยาศาสตร์"
+                      value={facultyInput}
+                      onChange={(e) => setFacultyInput(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 bg-white"
                     />
                   </div>
 
+                  {/* เลือก หรือ พิมพ์สาขาวิชา */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                        <Building className="w-4 h-4 text-[#0A6B50]" />
+                        สาขาวิชาที่รับผิดชอบ <span className="text-red-500">*</span>
+                      </label>
+                      
+                      {/* ปุ่มสลับโหมด เลือกจากรายการ / พิมพ์เอง */}
+                      <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setDeptMode('select')}
+                          className={`px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                            deptMode === 'select'
+                              ? 'bg-white text-[#0A6B50] font-bold shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <ListFilter className="w-3 h-3" /> เลือกที่มีอยู่
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeptMode('custom')}
+                          className={`px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                            deptMode === 'custom'
+                              ? 'bg-white text-[#0A6B50] font-bold shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <PenTool className="w-3 h-3" /> พิมพ์เพิ่มเอง
+                        </button>
+                      </div>
+                    </div>
+
+                    {deptMode === 'select' ? (
+                      <select
+                        value={selectedDeptName}
+                        onChange={(e) => setSelectedDeptName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 bg-white"
+                      >
+                        <option value="">-- เลือกสาขาวิชาที่มีอยู่ในระบบ --</option>
+                        {filteredDepartments.map((dept, idx) => (
+                          <option key={idx} value={dept.departmentName}>
+                            {dept.departmentName} {dept.facultyName ? `(${dept.facultyName})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="พิมพ์ชื่อสาขาวิชาใหม่ เช่น วิทกี, วิทยการคอมพิวเตอร์, คอม"
+                        value={customDeptName}
+                        onChange={(e) => setCustomDeptName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0A6B50] text-slate-800 bg-white"
+                      />
+                    )}
+                  </div>
+
+                  {/* รหัสเกณฑ์ */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       รหัสเกณฑ์ / รหัสหลักสูตร <span className="text-red-500">*</span> <span className="text-slate-400 font-normal">(เช่น QH800-67)</span>
@@ -379,6 +471,7 @@ export default function AddCourseModal({
                     />
                   </div>
 
+                  {/* ชื่อโครงการ */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อหลักสูตร / โครงการ <span className="text-red-500">*</span></label>
                     <input
@@ -390,6 +483,7 @@ export default function AddCourseModal({
                     />
                   </div>
 
+                  {/* จำนวนรับ */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">จำนวนที่รับสมัคร (คน) <span className="text-red-500">*</span></label>
                     <input
@@ -401,6 +495,7 @@ export default function AddCourseModal({
                     />
                   </div>
 
+                  {/* เงื่อนไขเพิ่มเติม */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">เงื่อนไข/ข้อกำหนดเพิ่มเติม (additionals)</label>
                     <textarea

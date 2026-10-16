@@ -7,7 +7,9 @@ import { BookOpen, Search, Trash2, AlertTriangle, RefreshCw } from 'lucide-react
 export interface CourseItem {
   id: string
   programName: string
+  faculty: string
   department: string
+  campus: string
   minGpax: string | number
   quota: number
 }
@@ -23,12 +25,17 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // ระบบค้นหาหลักสูตร (ค้นหาจากชื่อหลักสูตร หรือ ชื่อสาขา)
-  const filteredCourses = courses.filter(
-    (c) =>
-      c.programName.toLowerCase().includes(search.toLowerCase()) ||
-      c.department.toLowerCase().includes(search.toLowerCase())
-  )
+  // 📌 ค้นหา Dynamic ครอบคลุม รหัส, ชื่อหลักสูตร, คณะ, สาขา, และวิทยาเขต
+  const filteredCourses = courses.filter((c) => {
+    const term = search.toLowerCase()
+    return (
+      c.id.toLowerCase().includes(term) ||
+      c.programName.toLowerCase().includes(term) ||
+      c.faculty.toLowerCase().includes(term) ||
+      c.department.toLowerCase().includes(term) ||
+      c.campus.toLowerCase().includes(term)
+    )
+  })
 
   // ฟังก์ชันลบหลักสูตร
   const handleDelete = async () => {
@@ -36,7 +43,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
     setIsDeleting(true)
 
     try {
-      const res = await fetch(`/api/admin/courses?id=${selectedCourse.id}`, {
+      const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(selectedCourse.id)}`, {
         method: 'DELETE',
       })
 
@@ -66,7 +73,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
           <BookOpen className="w-6 h-6 text-[#063b2c]" /> จัดการหลักสูตร
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          กำหนดจำนวนที่รับ และเกณฑ์คุณสมบัติขั้นต่ำของแต่ละหลักสูตร
+          กำหนดจำนวนที่รับ และเกณฑ์คุณสมบัติขั้นต่ำของแต่ละหลักสูตรทุกคณะและวิทยาเขต (รวม {courses.length} รายการ)
         </p>
       </div>
 
@@ -76,7 +83,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="ค้นหาชื่อหลักสูตร หรือสาขา..."
+            placeholder="ค้นหารหัส, ชื่อหลักสูตร, สาขา, คณะ หรือวิทยาเขต..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#063b2c] focus:bg-white text-slate-800 placeholder:text-slate-400"
@@ -90,7 +97,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-semibold">
-                <th className="py-3 px-4">ชื่อหลักสูตร / สาขา</th>
+                <th className="py-3 px-4">รหัส / ชื่อหลักสูตร / สังกัด</th>
                 <th className="py-3 px-4 text-center">GPAX ขั้นต่ำ</th>
                 <th className="py-3 px-4 text-center">จำนวนที่รับ</th>
                 <th className="py-3 px-4 text-right">จัดการ</th>
@@ -101,13 +108,20 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
                 filteredCourses.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-slate-800">{c.programName}</div>
-                      <div className="text-xs text-slate-400">{c.department}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-mono font-bold text-[10px] rounded">
+                          {c.id}
+                        </span>
+                        <span className="font-semibold text-slate-800">{c.programName}</span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {c.faculty} ➔ <span className="font-medium text-slate-700">{c.department}</span> ({c.campus})
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-center font-medium text-slate-700">
                       {c.minGpax}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-medium text-slate-700">
+                    <td className="py-3.5 px-4 text-center font-medium text-[#063b2c]">
                       {c.quota} ที่นั่ง
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -124,7 +138,7 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
               ) : (
                 <tr>
                   <td colSpan={4} className="py-12 text-center text-slate-400 text-sm">
-                    ยังไม่มีหลักสูตรในระบบ
+                    ไม่พบหลักสูตรในระบบ
                   </td>
                 </tr>
               )}
@@ -146,8 +160,8 @@ export default function CourseClient({ initialCourses }: CourseClientProps) {
 
             <p className="text-sm text-slate-600">
               คุณต้องการลบหลักสูตร{' '}
-              <span className="font-bold text-slate-800">{selectedCourse.programName}</span>{' '}
-              ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+              <span className="font-bold text-slate-800">{selectedCourse.programName}</span> ({selectedCourse.id}){' '}
+              สังกัด <span className="font-semibold text-slate-800">{selectedCourse.faculty} - {selectedCourse.department}</span> ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
             </p>
 
             <div className="flex justify-end gap-3 pt-2">

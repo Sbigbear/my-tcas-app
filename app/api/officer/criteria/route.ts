@@ -8,7 +8,6 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     
-    // 1. แยกฟิลด์ที่ไม่เกี่ยวกับตาราง ProgramCriteria ออก เพื่อป้องกัน Unknown Argument Error
     const {
       Program_Criteriaid,
       universityId: selectedUnivId,
@@ -31,7 +30,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 2. ดึงข้อมูลเจ้าหน้าที่ผู้ใช้งาน
+    // 1. ดึงข้อมูลเจ้าหน้าที่ผู้ใช้งาน
     const cookieStore = await cookies()
     const token = cookieStore.get('token')?.value
     let userEmail = cookieStore.get('email')?.value || cookieStore.get('user_email')?.value
@@ -44,9 +43,7 @@ export async function POST(req: Request) {
           userEmail = decoded?.email || decoded?.userEmail || userEmail
           userId = decoded?.id || decoded?.userId || decoded?.sub || userId
         }
-      } catch (e) {
-        console.error('JWT Decode Error:', e)
-      }
+      } catch (e) {}
     }
 
     const orConditions = [
@@ -73,33 +70,34 @@ export async function POST(req: Request) {
       )
     }
 
-    // 📌 3. ดึง คณะ, วิทยาเขต, และ สาขาวิชา แบบ Dynamic 100% จาก DB หรือ Form Payload (ไร้การ Hardcode)
-    const faculty = officer.university?.faculty || bodyFacultyName?.trim()
-    const campus = officer.university?.campus || bodyCampusName?.trim() || 'หลัก'
+    // 📌 2. ดึงชื่อคณะและสาขาจาก Request Payload เป็นหลัก
+    const cleanFaculty = bodyFacultyName?.trim() || officer.university?.faculty?.trim()
     const cleanDept = departmentName?.trim() || 'ประจำคณะ'
+    const cleanCampus = bodyCampusName?.trim() || officer.university?.campus?.trim() || 'บางเขน'
 
-    if (!faculty) {
+    if (!cleanFaculty) {
       return NextResponse.json(
-        { success: false, message: 'ไม่พบข้อมูลคณะสังกัด กรุณาระบุชื่อคณะในฟอร์มหรือตรวจสอบข้อมูลผู้ใช้' },
+        { success: false, message: 'กรุณาระบุชื่อคณะสังกัดให้ถูกต้อง' },
         { status: 400 }
       )
     }
 
-    // 📌 4. ค้นหา หรือ สร้างสังกัดมหาวิทยาลัย (University) ตาม คณะ + สาขา + วิทยาเขต จริง
+    // 📌 3. ค้นหาใน DB ว่ามี (คณะ + สาขา) ตรงกันอยู่แล้วหรือไม่
     let targetUniv = await prisma.university.findFirst({
       where: {
-        faculty: faculty,
+        faculty: cleanFaculty,
         department: cleanDept,
-        ...(campus ? { campus } : {}),
       },
     })
 
+    // 📌 4. หากยังไม่มีใน DB ค่อยสร้าง University Record ใหม่ให้สาขานี้
     if (!targetUniv) {
-      const facultyUniv = await prisma.university.findFirst({
-        where: { faculty: faculty },
+      const sameFacultyUniv = await prisma.university.findFirst({
+        where: { faculty: cleanFaculty },
       })
 
-      const univName = facultyUniv?.name || officer.university?.name || 'มหาวิทยาลัย'
+      const finalName = sameFacultyUniv?.name || officer.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์'
+      const finalCampus = cleanCampus || sameFacultyUniv?.campus || 'บางเขน'
 
       const allUnivs = await prisma.university.findMany({ select: { Universitiesid: true } })
       const numbers = allUnivs
@@ -112,29 +110,29 @@ export async function POST(req: Request) {
 
       const maxNum = numbers.length > 0 ? Math.max(...numbers) : allUnivs.length
       const newUnivId = `univ-${String(maxNum + 1).padStart(3, '0')}`
-      const newCode = `UNI${String(maxNum + 1).padStart(3, '0')}`
+      const newCode = `KU${String(maxNum + 1).padStart(3, '0')}`
 
       targetUniv = await prisma.university.create({
         data: {
           Universitiesid: newUnivId,
           code: newCode,
-          name: univName,
-          campus: campus,
-          faculty: faculty,
+          name: finalName,
+          campus: finalCampus,
+          faculty: cleanFaculty,
           department: cleanDept,
         },
       })
     }
 
-    // 📌 5. Auto-Link: ผูก universityId ให้บัญชีผู้ใช้เจ้าหน้าที่ใน DB อัตโนมัติหากยังไม่มี
-    if (!officer.universityId || officer.universityId !== targetUniv.Universitiesid) {
+    // 📌 5. ผูก universityId กลับเข้าบัญชีเจ้าหน้าที่หากยังเป็น NULL
+    if (!officer.universityId) {
       await prisma.user.update({
         where: { Usersid: officer.Usersid },
         data: { universityId: targetUniv.Universitiesid },
       })
     }
 
-    // 📌 6. บันทึกเกณฑ์หลักสูตรลงตาราง ProgramCriteria
+    // 📌 6. บันทึกหลักสูตรใหม่
     const createdCriteria = await prisma.programCriteria.create({
       data: {
         Program_Criteriaid: Program_Criteriaid.trim(),
@@ -148,23 +146,7 @@ export async function POST(req: Request) {
       },
     })
 
-    // 📌 7. บันทึก AuditLog
-    const officerName = officer.name || 'เจ้าหน้าที่คณะ'
-    const logDetails = `เจ้าหน้าที่คณะ (${officerName}) เพิ่มหลักสูตรใหม่: ${programName} (${faculty} - ${cleanDept} - วิทยาเขต${campus})`
-
-    try {
-      if ((prisma as any).auditLog) {
-        await (prisma as any).auditLog.create({
-          data: {
-            action: 'CREATE_COURSE',
-            details: logDetails,
-            userId: officer.Usersid,
-          },
-        })
-      }
-    } catch (logErr) {}
-
-    // 📌 8. Revalidate Cache ให้หน้าอัปเดตเรียลไทม์ทันทีทุกหน้า
+    // 📌 7. Revalidate เคลียร์ Cache ให้ข้อมูลอัปเดตเรียลไทม์
     revalidatePath('/admin/logs')
     revalidatePath('/officer/courses')
     revalidatePath('/teacher/courses')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { revalidatePath } from 'next/cache'
 
 export async function DELETE(request: Request) {
   try {
@@ -13,19 +14,25 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // 📌 Step 1: ลบรายการสมัครของนักเรียนที่ผูกกับหลักสูตรนี้ออกก่อน
+    // 📌 Step 1: ลบรายการสมัครของนักเรียนที่ผูกกับหลักสูตรนี้ก่อน (ใช้ชื่อฟิลด์ Program_Criteriaid ตาม Schema)
     await prisma.application.deleteMany({
       where: {
-        criteriaId: id,
-      },
+        Program_Criteriaid: id,
+      } as any,
     })
 
-    // 📌 Step 2: ลบข้อมูลหลักสูตรออกจากตาราง ProgramCriteria
-    await prisma.programCriteria.delete({
+    // 📌 Step 2: ลบข้อมูลหลักสูตรออกจากตาราง ProgramCriteria (ใช้ deleteMany ป้องกัน Error P2025)
+    await prisma.programCriteria.deleteMany({
       where: {
         Program_Criteriaid: id,
       },
     })
+
+    // 📌 Step 3: Revalidate เคลียร์ Cache ให้ข้อมูลทุกหน้าอัปเดตเรียลไทม์ทันที
+    revalidatePath('/admin/courses')
+    revalidatePath('/officer/courses')
+    revalidatePath('/teacher/courses')
+    revalidatePath('/student/search')
 
     return NextResponse.json({
       success: true,

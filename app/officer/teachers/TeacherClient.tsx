@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createTeacherData, deleteTeacherData } from './actions'
-import { UserPlus, Search, Trash2, GraduationCap, Building } from 'lucide-react'
+import { UserPlus, Search, Trash2, Building } from 'lucide-react'
 
 type TeacherItem = {
   id: string
@@ -16,10 +16,12 @@ export default function TeacherClient({
   initialTeachers,
   facultyName,
   existingDepartments,
+  officerUserId,
 }: {
   initialTeachers: TeacherItem[]
   facultyName: string
   existingDepartments: string[]
+  officerUserId?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -134,6 +136,9 @@ export default function TeacherClient({
 
             <form
               action={async (formData) => {
+                // 📌 แนบ faculty และ officerUserId ติดไปใน FormData ด้วยเสมอ
+                formData.append('faculty', facultyName)
+                if (officerUserId) formData.append('officerUserId', officerUserId)
                 await createTeacherData(formData)
                 setIsOpen(false)
               }}
