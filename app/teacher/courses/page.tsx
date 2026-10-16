@@ -59,14 +59,18 @@ export default async function TeacherCoursesPage() {
     redirect('/login')
   }
 
-  const teacherUnivId = teacher.universityId
   const faculty = teacher.university?.faculty || ''
   const department = teacher.university?.department || ''
 
-  const courses = teacherUnivId
+  // 📌 แก้ไขจุดวิกฤต: กรองตาม คณะ + สาขา แทนการใช้ universityId ตรงๆ
+  // หากอาจารย์สังกัด 'ประจำคณะ' จะเห็นหลักสูตรทั้งคณะ แต่ถ้าเป็นสาขาเฉพาะ จะเห็นเฉพาะสาขานั้น 100%
+  const courses = faculty
     ? await prisma.programCriteria.findMany({
         where: {
-          universityId: teacherUnivId,
+          university: {
+            faculty: faculty,
+            ...(department && department !== 'ประจำคณะ' ? { department: department } : {}),
+          },
         },
         include: {
           university: true,
@@ -83,7 +87,7 @@ export default async function TeacherCoursesPage() {
         <p className="text-xs text-slate-500 mt-0.5">
           เกณฑ์คะแนนขั้นต่ำและจำนวนรับสมัครเฉพาะ{' '}
           <span className="font-bold text-[#07382B]">
-            {faculty} - {department}
+            {faculty} {department !== 'ประจำคณะ' ? `- สาขา${department}` : ''}
           </span>
         </p>
       </div>
@@ -100,7 +104,6 @@ export default async function TeacherCoursesPage() {
               (a) => a.status === 'PASSED' || a.status === 'CONFIRMED'
             ).length
 
-            // 📌 คำนวณตรรกะระบบแบบเดียวกันทุกฝั่ง
             const isFull = passedApps >= course.capacity
 
             const criteriaList = [

@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     
-    // 📌 1. แยกฟิลด์ที่ไม่เกี่ยวกับตาราง ProgramCriteria ออก เพื่อป้องกัน Unknown Argument Error ใน Prisma
+    // 1. แยกฟิลด์ที่ไม่เกี่ยวกับตาราง ProgramCriteria ออก เพื่อป้องกัน Unknown Argument Error
     const {
       Program_Criteriaid,
       universityId: selectedUnivId,
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 📌 2. ดึงข้อมูลเจ้าหน้าที่ผู้ใช้งานจาก Cookie หรือ JWT Token
+    // 2. ดึงข้อมูลเจ้าหน้าที่ผู้ใช้งานจาก Cookie หรือ JWT Token
     const cookieStore = await cookies()
     const token = cookieStore.get('token')?.value
     let userEmail = cookieStore.get('email')?.value || cookieStore.get('user_email')?.value
@@ -72,83 +72,66 @@ export async function POST(req: Request) {
       )
     }
 
-    // 📌 3. จัดการเรื่องคณะ (Faculty) และ มหาวิทยาลัย (University)
-    // หาก officer.university เป็น null ให้ใช้ bodyFacultyName หรือค่าเริ่มต้น
-    let faculty = officer.university?.faculty || bodyFacultyName?.trim() || 'วิศวกรรมศาสตร์'
-    let campus = officer.university?.campus || 'บางเขน'
-    let targetUniversityId = selectedUnivId
+    // 📌 3. ดึงชื่อคณะแบบ Dynamic (ใช้จาก DB ของผู้ใช้ หรือจากหน้าฟอร์ม)
+    const faculty = officer.university?.faculty || bodyFacultyName?.trim()
+    const campus = officer.university?.campus || 'บางเขน'
+    const cleanDept = departmentName?.trim() || 'ประจำคณะ'
 
-    // 📌 4. ค้นหา หรือ สร้างสาขาวิชาใหม่ในตาราง University จากชื่อสาขาที่กรอกเข้ามา
-    if (departmentName?.trim()) {
-      const cleanDept = departmentName.trim()
-
-      let existingUniv = await prisma.university.findFirst({
-        where: {
-          faculty,
-          department: cleanDept,
-          campus,
-        },
-      })
-
-      if (existingUniv) {
-        targetUniversityId = (existingUniv as any).Universitiesid || (existingUniv as any).Universityid
-      } else {
-        const univCount = await prisma.university.count()
-        const allUnivs = await prisma.university.findMany({
-          select: { Universitiesid: true } as any,
-        })
-
-        const numbers = allUnivs
-          .map((u: any) => {
-            const idStr = u.Universitiesid || u.Universityid || ''
-            const numStr = idStr.replace('univ-', '')
-            const parsed = parseInt(numStr, 10)
-            return isNaN(parsed) ? null : parsed
-          })
-          .filter((n: number | null): n is number => n !== null)
-
-        const maxNum = numbers.length > 0 ? Math.max(...numbers) : univCount
-        const newUnivId = `univ-${String(maxNum + 1).padStart(3, '0')}`
-        const newCode = `KU${String(maxNum + 1).padStart(3, '0')}`
-
-        const newUniv = await prisma.university.create({
-          data: {
-            Universitiesid: newUnivId,
-            code: newCode,
-            name: officer.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์',
-            campus,
-            faculty,
-            department: cleanDept,
-          } as any,
-        })
-        targetUniversityId = (newUniv as any).Universitiesid || (newUniv as any).Universityid
-      }
+    if (!faculty) {
+      return NextResponse.json(
+        { success: false, message: 'ไม่พบข้อมูลสังกัดคณะของผู้ใช้งาน กรุณาตรวจสอบข้อมูลบัญชีผู้ใช้' },
+        { status: 400 }
+      )
     }
 
-    // หากยังไม่มี targetUniversityId ให้ใช้ universityId เดิมของเจ้าหน้าที่ หรือสั่งสร้าง/ผูกอัตโนมัติ
-    if (!targetUniversityId) {
-      if (officer.universityId) {
-        targetUniversityId = officer.universityId
-      } else {
-        // สร้าง University Record ให้เจ้าหน้าที่หากใน DB ไม่มีข้อมูลผูกไว้
-        const defaultUniv = await prisma.university.create({
-          data: {
-            Universitiesid: `univ-off-${Date.now().toString().slice(-4)}`,
-            code: 'KU000',
-            name: 'มหาวิทยาลัยเกษตรศาสตร์',
-            campus,
-            faculty,
-            department: departmentName?.trim() || 'ประจำคณะ',
-          } as any,
-        })
-        targetUniversityId = (defaultUniv as any).Universitiesid || (defaultUniv as any).Universityid
+    let targetUniversityId = selectedUnivId
 
-        // ผูก universityId ให้เจ้าหน้าที่ใน DB
-        await prisma.user.update({
-          where: { Usersid: officer.Usersid },
-          data: { universityId: targetUniversityId },
+    // 📌 4. ค้นหา หรือ สร้างสาขาวิชาใหม่ในตาราง University
+    let existingUniv = await prisma.university.findFirst({
+      where: {
+        faculty,
+        department: cleanDept,
+        campus,
+      },
+    })
+
+    if (existingUniv) {
+      targetUniversityId = existingUniv.Universitiesid
+    } else {
+      const univCount = await prisma.university.count()
+      const allUnivs = await prisma.university.findMany({ select: { Universitiesid: true } })
+
+      const numbers = allUnivs
+        .map((u) => {
+          const numStr = u.Universitiesid.replace('univ-', '')
+          const parsed = parseInt(numStr, 10)
+          return isNaN(parsed) ? null : parsed
         })
-      }
+        .filter((n): n is number => n !== null)
+
+      const maxNum = numbers.length > 0 ? Math.max(...numbers) : univCount
+      const newUnivId = `univ-${String(maxNum + 1).padStart(3, '0')}`
+      const newCode = `KU${String(maxNum + 1).padStart(3, '0')}`
+
+      const newUniv = await prisma.university.create({
+        data: {
+          Universitiesid: newUnivId,
+          code: newCode,
+          name: officer.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์',
+          campus,
+          faculty,
+          department: cleanDept,
+        },
+      })
+      targetUniversityId = newUniv.Universitiesid
+    }
+
+    // ผูก universityId ให้เจ้าหน้าที่หากใน DB ยังไม่มี
+    if (!officer.universityId) {
+      await prisma.user.update({
+        where: { Usersid: officer.Usersid },
+        data: { universityId: targetUniversityId },
+      })
     }
 
     // 📌 5. บันทึกเกณฑ์หลักสูตรลงตาราง ProgramCriteria
@@ -165,10 +148,9 @@ export async function POST(req: Request) {
       },
     })
 
-    // 📌 6. บันทึกประวัติการทำงานลงตาราง AuditLog / SystemLog
+    // 📌 6. บันทึกประวัติการทำงานลง AuditLog / SystemLog
     const officerName = officer.name || 'เจ้าหน้าที่คณะ'
-    const deptDisplay = departmentName?.trim() || officer.university?.department || 'ประจำคณะ'
-    const logDetails = `${officer.role === 'OFFICER' ? 'เจ้าหน้าที่คณะ' : 'อาจารย์'} (${officerName}) เพิ่มหลักสูตรใหม่: ${programName} (${faculty} - ${deptDisplay}) รับจำนวน ${capacity} คน`
+    const logDetails = `เจ้าหน้าที่คณะ (${officerName}) เพิ่มหลักสูตรใหม่: ${programName} (${faculty} - ${cleanDept}) รับจำนวน ${capacity} คน`
 
     try {
       if ((prisma as any).auditLog) {
@@ -195,7 +177,7 @@ export async function POST(req: Request) {
       console.error('AuditLog Error:', logErr)
     }
 
-    // 📌 7. Revalidate ล้าง Cache ให้ข้อมูลอัปเดตเรียลไทม์ทันที
+    // 📌 7. Revalidate ล้าง Cache ให้ข้อมูลอัปเดตเรียลไทม์ทันทีทุกหน้า
     revalidatePath('/admin/logs')
     revalidatePath('/officer/courses')
     revalidatePath('/teacher/courses')

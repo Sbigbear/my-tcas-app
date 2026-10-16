@@ -36,19 +36,13 @@ async function getLoggedInOfficer() {
 
     if (orConditions.length === 0) return null
 
+    // 📌 แก้ไขจุดนี้: ดึงข้อมูล university มาด้วยทันที และส่ง user กลับไปเสมอ
     const user = await prisma.user.findFirst({
       where: { OR: orConditions },
-      select: { Usersid: true, universityId: true, name: true, email: true },
+      include: { university: true },
     })
 
-    if (user?.universityId) {
-      const univ = await prisma.university.findUnique({
-        where: { Universitiesid: user.universityId },
-      })
-      return { ...user, university: univ }
-    }
-
-    return null
+    return user
   } catch (e) {
     return null
   }
@@ -58,7 +52,7 @@ export default async function OfficerCoursesPage() {
   const officer = await getLoggedInOfficer()
   const facultyName = officer?.university?.faculty || ''
 
-  // 1. ดึงหลักสูตรทั้งหมดภายใต้คณะนี้
+  // 1. ดึงหลักสูตรทั้งหมดภายใต้คณะนี้ ( Dynamic 100% ครอบคลุมทุกสาขา )
   const courses = facultyName
     ? await prisma.programCriteria.findMany({
         where: {
@@ -74,7 +68,7 @@ export default async function OfficerCoursesPage() {
       })
     : []
 
-  // 2. ดึงรายการสาขาวิชาที่มีอยู่แล้วเพื่อส่งให้ Modal ใช้แนะนำตัวช่วยพิมพ์ (Suggestions)
+  // 2. ดึงรายการสาขาวิชาที่มีอยู่แล้วส่งให้ Modal ใช้เป็นตัวช่วยพิมพ์ (Suggestions)
   const facultyUnivs = facultyName
     ? await prisma.university.findMany({
         where: {
@@ -105,7 +99,6 @@ export default async function OfficerCoursesPage() {
           </p>
         </div>
 
-        {/* 📌 ส่งข้อมูลคณะและสาขาวิชาไปที่ AddCourseModal (รองรับการพิมพ์กรอกเองได้ทันที) */}
         <AddCourseModal facultyName={facultyName} departments={departmentOptions} />
       </div>
 
