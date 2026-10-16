@@ -36,7 +36,6 @@ async function getLoggedInOfficer() {
 
     if (orConditions.length === 0) return null
 
-    // 📌 แก้ไขจุดนี้: ดึงข้อมูล university มาด้วยทันที และส่ง user กลับไปเสมอ
     const user = await prisma.user.findFirst({
       where: { OR: orConditions },
       include: { university: true },
@@ -52,39 +51,33 @@ export default async function OfficerCoursesPage() {
   const officer = await getLoggedInOfficer()
   const facultyName = officer?.university?.faculty || ''
 
-  // 1. ดึงหลักสูตรทั้งหมดภายใต้คณะนี้ ( Dynamic 100% ครอบคลุมทุกสาขา )
-  const courses = facultyName
-    ? await prisma.programCriteria.findMany({
-        where: {
-          university: {
-            faculty: facultyName,
-          },
-        },
-        include: {
-          university: true,
-          applications: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      })
-    : []
+  // 📌 ดึงหลักสูตรทั้งหมดภายใต้คณะของเจ้าหน้าที่ (ถ้าเจ้าหน้าที่ยังไม่มีคณะผูกไว้ ให้แสดงทั้งหมดในระบบ)
+  const courses = await prisma.programCriteria.findMany({
+    where: facultyName
+      ? { university: { faculty: facultyName } }
+      : {},
+    include: {
+      university: true,
+      applications: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  })
 
-  // 2. ดึงรายการสาขาวิชาที่มีอยู่แล้วส่งให้ Modal ใช้เป็นตัวช่วยพิมพ์ (Suggestions)
-  const facultyUnivs = facultyName
-    ? await prisma.university.findMany({
-        where: {
-          faculty: facultyName,
-          department: { not: 'ประจำคณะ' },
-        },
-        select: {
-          Universitiesid: true,
-          department: true,
-        },
-      })
-    : []
+  // ดึงรายการตัวเลือกสังกัดคณะ/สาขาที่มีทั้งหมดในระบบส่งให้ Modal แนะนำ
+  const allUnivs = await prisma.university.findMany({
+    select: {
+      Universitiesid: true,
+      faculty: true,
+      department: true,
+      campus: true,
+    },
+  })
 
-  const departmentOptions = facultyUnivs.map((u) => ({
+  const departmentOptions = allUnivs.map((u) => ({
     universityId: u.Universitiesid,
+    facultyName: u.faculty,
     departmentName: u.department,
+    campusName: u.campus,
   }))
 
   return (
@@ -95,7 +88,7 @@ export default async function OfficerCoursesPage() {
           <h1 className="text-2xl font-bold text-slate-900">จัดการหลักสูตรและเกณฑ์การรับสมัคร</h1>
           <p className="text-xs text-slate-500">
             กำหนดหลักสูตร จำนวนรับ และเกณฑ์คะแนนขั้นต่ำสำหรับอาจารย์ใช้คัดเลือก สังกัด{' '}
-            <span className="font-bold text-[#07382B]">{facultyName || '-'}</span>
+            <span className="font-bold text-[#07382B]">{facultyName || 'ทุกสังกัดในระบบ'}</span>
           </p>
         </div>
 
@@ -150,7 +143,7 @@ export default async function OfficerCoursesPage() {
                     </div>
                     <p className="text-xs text-slate-500 mt-1.5">
                       {course.university.faculty}{' '}
-                      <span className="font-bold text-slate-700">{course.university.department}</span> ({course.university.campus})
+                      <span className="font-bold text-slate-700">{course.university.department}</span> (วิทยาเขต{course.university.campus})
                     </p>
                   </div>
 
