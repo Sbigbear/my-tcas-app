@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +22,19 @@ export async function POST(request: Request) {
       },
     })
 
-    if (!teacher || teacher.password !== password) {
+    if (!teacher) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานในส่วนของอาจารย์ หรือรหัสผ่านไม่ถูกต้อง',
+        },
+        { status: 401 }
+      )
+    }
+
+    // 🔒 ตรวจสอบรหัสผ่านแฮชด้วย bcrypt.compare
+    const isPasswordValid = await bcrypt.compare(password, teacher.password)
+    if (!isPasswordValid) {
       return NextResponse.json(
         {
           success: false,

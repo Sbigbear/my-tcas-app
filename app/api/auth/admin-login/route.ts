@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 📌 ค้นหาจากทั้ง ADMIN และ OFFICER
+    // 📌 ค้นหาผู้ใช้สิทธิ์ ADMIN หรือ OFFICER
     const user = await prisma.user.findFirst({
       where: {
         email: username,
@@ -29,7 +30,31 @@ export async function POST(req: Request) {
       )
     }
 
-    if (user.password !== password) {
+    // 🔒 1. ลองตรวจเช็กด้วย bcrypt compare ก่อน (สำหรับรหัสผ่านที่แฮชแล้ว)
+    let isPasswordValid = false
+    try {
+      isPasswordValid = await bcrypt.compare(password, user.password)
+    } catch (e) {
+      isPasswordValid = false
+    }
+
+    // 🔄 2. Fallback: กรณีรหัสใน DB ยังเป็น Plaintext
+    if (!isPasswordValid && user.password === password) {
+      isPasswordValid = true
+
+      // แฮชรหัสผ่านใหม่ แล้วอัปเดตลงตาราง D1_Users ใน DB ทันที
+      try {
+        const hashedPassword = await bcrypt.hash(password, 10)
+        await prisma.user.update({
+          where: { Usersid: user.Usersid },
+          data: { password: hashedPassword },
+        })
+      } catch (updateErr) {
+        console.error('Auto-hash password error:', updateErr)
+      }
+    }
+
+    if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, message: 'รหัสผ่านไม่ถูกต้อง' },
         { status: 400 }
@@ -40,14 +65,13 @@ export async function POST(req: Request) {
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
       user: {
-        id: user.Usersid, // อ้างอิง Primary Key ใหม่ของ User
+        id: user.Usersid,
         name: user.name,
         email: user.email,
         role: user.role,
       },
     })
 
-    // 📌 ตัวเลือก Cookie มาตรฐาน (ตั้งอายุไว้ 1 วัน)
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -55,7 +79,6 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24, // 1 วัน
     }
 
-    // 📌 ฝัง Cookie ให้ครบทุกคีย์สำหรับฝั่ง Admin / Officer
     response.cookies.set('admin_id', user.Usersid, cookieOptions)
     response.cookies.set('userId', user.Usersid, cookieOptions)
     response.cookies.set('email', user.email ?? '', cookieOptions)

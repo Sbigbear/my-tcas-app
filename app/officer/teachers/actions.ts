@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
 import { revalidatePath } from 'next/cache'
+import bcrypt from 'bcryptjs'
 
 async function getOfficerInfo() {
   try {
@@ -53,14 +54,17 @@ export async function createTeacherData(formData: FormData) {
 
     const name = (formData.get('name') as string)?.trim()
     const email = (formData.get('email') as string)?.trim()
-    const password = (formData.get('password') as string)?.trim()
+    const rawPassword = (formData.get('password') as string)?.trim()
     const teacherId = (formData.get('teacherId') as string)?.trim()
     const department = (formData.get('department') as string)?.trim()
     const formFaculty = (formData.get('faculty') as string)?.trim()
 
-    if (!name || !email || !password || !department) {
+    if (!name || !email || !rawPassword || !department) {
       return { success: false, message: 'กรุณากรอกข้อมูลสำคัญให้ครบถ้วน' }
     }
+
+    // 🔒 1. เข้ารหัสรหัสผ่าน (Hash Password) ก่อนบันทึกลง DB
+    const hashedPassword = await bcrypt.hash(rawPassword, 10)
 
     // 📌 ยึดคณะที่ Client ส่งมาเป็นหลัก
     let faculty = formFaculty || officer?.university?.faculty
@@ -116,12 +120,13 @@ export async function createTeacherData(formData: FormData) {
     const maxUserNum = userNumbers.length > 0 ? Math.max(...userNumbers) : 0
     const customUserId = `usr-t${String(maxUserNum + 1).padStart(2, '0')}`
 
+    // 🔒 2. บันทึกข้อมูลอาจารย์โดยใช้ hashedPassword
     const newTeacher = await prisma.user.create({
       data: {
         Usersid: customUserId,
         name,
         email,
-        password,
+        password: hashedPassword,
         role: 'TEACHER',
         teacherId: teacherId || null,
         universityId: universityTarget.Universitiesid,

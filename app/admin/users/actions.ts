@@ -2,12 +2,13 @@
 
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import bcrypt from 'bcryptjs'
 
 export async function createUserData(formData: FormData) {
   try {
     const name = formData.get('name') as string
     const email = formData.get('email') as string
-    const password = formData.get('password') as string
+    const rawPassword = formData.get('password') as string
     const roleType = formData.get('role') as 'OFFICER' | 'TEACHER' | 'ADMIN'
     const teacherId = formData.get('teacherId') as string | null
 
@@ -17,9 +18,12 @@ export async function createUserData(formData: FormData) {
     const rawDepartment = formData.get('department') as string | null
     const campus = formData.get('campus') as string | null
 
-    if (!name || !email || !password || !roleType) {
+    if (!name || !email || !rawPassword || !roleType) {
       return { success: false, message: 'กรุณากรอกข้อมูลสำคัญให้ครบถ้วน' }
     }
+
+    // 🔒 1. เข้ารหัสรหัสผ่าน (Hash Password) ก่อนบันทึกลงฐานข้อมูล
+    const hashedPassword = await bcrypt.hash(rawPassword, 10)
 
     // 📌 ถ้าเป็นเจ้าหน้าที่คณะ (OFFICER) สาขาวิชาจะถูกกำหนดเป็น "ประจำคณะ" โดยอัตโนมัติ
     const department = roleType === 'OFFICER' ? 'ประจำคณะ' : rawDepartment
@@ -75,7 +79,7 @@ export async function createUserData(formData: FormData) {
       }
     }
 
-    // 📌 1. คำนวณรหัสผู้ใช้แบบปลอดภัย ป้องกัน ID ชนกันเมื่อมีผู้ใช้ถูกลบ
+    // 📌 2. คำนวณรหัสผู้ใช้แบบปลอดภัย ป้องกัน ID ชนกันเมื่อมีผู้ใช้ถูกลบ
     const allUsers = await prisma.user.findMany({
       select: { Usersid: true },
     })
@@ -92,20 +96,20 @@ export async function createUserData(formData: FormData) {
     const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0
     const customUserId = `${prefix}${String(maxNum + 1).padStart(2, '0')}`
 
-    // 📌 2. สร้างบัญชีผู้ใช้งาน
+    // 🔒 3. สร้างบัญชีผู้ใช้งาน (ใช้รหัสผ่านที่ถูกแฮชแล้ว)
     const user = await prisma.user.create({
       data: {
         Usersid: customUserId,
         name,
         email,
-        password: password,
+        password: hashedPassword,
         role: roleType,
         teacherId: roleType === 'TEACHER' || roleType === 'OFFICER' ? teacherId || null : null,
         universityId: roleType === 'TEACHER' || roleType === 'OFFICER' ? universityId || null : null,
       },
     })
 
-    // 📌 3. บันทึก AuditLog / SystemLog
+    // 📌 4. บันทึก AuditLog / SystemLog
     try {
       const roleLabel = roleType === 'OFFICER' ? 'เจ้าหน้าที่คณะ' : roleType === 'TEACHER' ? 'อาจารย์' : 'ผู้ดูแลระบบ'
       const logDetails = `เพิ่มผู้ใช้งานใหม่ บทบาท: ${roleLabel} (${name} - ${email})`
@@ -134,7 +138,6 @@ export async function createUserData(formData: FormData) {
       console.error('AuditLog Error:', logErr)
     }
 
-    // ล้าง Cache หน้าที่เกี่ยวข้อง
     revalidatePath('/admin/users')
     revalidatePath('/admin/dashboard')
     revalidatePath('/admin/logs')
@@ -152,7 +155,6 @@ export async function createUserData(formData: FormData) {
 export async function deleteUserData(id: string, type: 'USER' | 'STUDENT') {
   try {
     if (type === 'STUDENT') {
-      // 📌 ป้องกัน Error P2025 โดยใช้ deleteMany เคลียร์การสมัครและรายชื่อนักเรียน
       await prisma.application.deleteMany({
         where: { studentId: id },
       })
@@ -161,7 +163,6 @@ export async function deleteUserData(id: string, type: 'USER' | 'STUDENT') {
         where: { Studentsid: id },
       })
     } else {
-      // 📌 เคลียร์ความสัมพันธ์ใน AuditLog และ FacultyConfirmation ก่อนลบ User
       try {
         if ((prisma as any).auditLog) {
           await (prisma as any).auditLog.deleteMany({
@@ -177,13 +178,11 @@ export async function deleteUserData(id: string, type: 'USER' | 'STUDENT') {
         console.error('Error clearing user relations:', relErr)
       }
 
-      // 📌 ป้องกัน Error P2025 ลบ User ปลอดภัยแน่นอน
       await prisma.user.deleteMany({
         where: { Usersid: id },
       })
     }
 
-    // 📌 สั่ง revalidatePath ล้าง Cache ให้ UI อัปเดตทันที
     revalidatePath('/admin/users')
     revalidatePath('/admin/dashboard')
     revalidatePath('/admin/logs')

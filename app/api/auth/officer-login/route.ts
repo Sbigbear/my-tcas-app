@@ -1,6 +1,6 @@
-// app/api/auth/officer-login/route.ts
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +14,16 @@ export async function POST(req: Request) {
       },
     })
 
-    if (!user || user.password !== password) {
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์เจ้าหน้าที่คณะ' },
+        { status: 401 }
+      )
+    }
+
+    // 🔒 ตรวจสอบรหัสผ่านแฮชด้วย bcrypt.compare
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+    if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์เจ้าหน้าที่คณะ' },
         { status: 401 }
