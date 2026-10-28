@@ -51,7 +51,6 @@ export default async function OfficerCoursesPage() {
   const officer = await getLoggedInOfficer()
   const facultyName = officer?.university?.faculty || ''
 
-  // 📌 กรองเฉพาะหลักสูตรที่สังกัดคณะเดียวกับเจ้าหน้าที่เท่านั้น (ห้ามใช้เงื่อนไขว่าง {} ที่ดึงข้อมูลทุกคณะ)
   const courses = facultyName
     ? await prisma.programCriteria.findMany({
         where: {
@@ -67,7 +66,6 @@ export default async function OfficerCoursesPage() {
       })
     : []
 
-  // ดึงรายการตัวเลือกสาขาวิชาทั้งหมดในระบบส่งให้ Modal
   const allUnivs = await prisma.university.findMany({
     select: {
       Universitiesid: true,
@@ -117,16 +115,40 @@ export default async function OfficerCoursesPage() {
               (a) => a.status === 'PASSED' || a.status === 'CONFIRMED'
             ).length
 
+            // 📌 รวบรวมเกณฑ์การรับสมัครให้ครบถ้วนทุกฟิลด์ใน Schema D6_Program_Criteria
             const criteriaList = [
+              // เกรดเฉลี่ยขั้นต่ำ (GPA)
               course.minGpax ? `GPAX ขั้นต่ำ: ${Number(course.minGpax).toFixed(2)}` : null,
               course.minMathGpa ? `GPA คณิต: ${Number(course.minMathGpa).toFixed(2)}` : null,
               course.minSciGpa ? `GPA วิทย์: ${Number(course.minSciGpa).toFixed(2)}` : null,
               course.minEngGpa ? `GPA อังกฤษ: ${Number(course.minEngGpa).toFixed(2)}` : null,
+              course.minThaiGpa ? `GPA ไทย: ${Number(course.minThaiGpa).toFixed(2)}` : null,
+              course.minSocialGpa ? `GPA สังคม: ${Number(course.minSocialGpa).toFixed(2)}` : null,
+              course.minHealthGpa ? `GPA สุขศึกษา: ${Number(course.minHealthGpa).toFixed(2)}` : null,
+              course.minArtGpa ? `GPA ศิลปะ: ${Number(course.minArtGpa).toFixed(2)}` : null,
+              course.minCareerGpa ? `GPA การงาน: ${Number(course.minCareerGpa).toFixed(2)}` : null,
+
+              // คะแนนสอบ TGAT / TPAT
               course.minTgat ? `TGAT ขั้นต่ำ: ${Number(course.minTgat).toFixed(2)}` : null,
               course.minTpat1 ? `TPAT1: ${Number(course.minTpat1).toFixed(2)}` : null,
+              course.minTpat2 ? `TPAT2: ${Number(course.minTpat2).toFixed(2)}` : null,
               course.minTpat3 ? `TPAT3: ${Number(course.minTpat3).toFixed(2)}` : null,
+              course.minTpat4 ? `TPAT4: ${Number(course.minTpat4).toFixed(2)}` : null,
+              course.minTpat5 ? `TPAT5: ${Number(course.minTpat5).toFixed(2)}` : null,
+
+              // คะแนนสอบ A-Level
               course.minAlevelMath1 ? `A-Level คณิต 1: ${Number(course.minAlevelMath1).toFixed(2)}` : null,
+              course.minAlevelMath2 ? `A-Level คณิต 2: ${Number(course.minAlevelMath2).toFixed(2)}` : null,
+              course.minAlevelSci ? `A-Level วิทย์ทั่วไป: ${Number(course.minAlevelSci).toFixed(2)}` : null,
+              course.minAlevelPhy ? `A-Level ฟิสิกส์: ${Number(course.minAlevelPhy).toFixed(2)}` : null,
+              course.minAlevelChem ? `A-Level เคมี: ${Number(course.minAlevelChem).toFixed(2)}` : null,
+              course.minAlevelBio ? `A-Level ชีวะ: ${Number(course.minAlevelBio).toFixed(2)}` : null,
+              course.minAlevelSoc ? `A-Level สังคม: ${Number(course.minAlevelSoc).toFixed(2)}` : null,
+              course.minAlevelThai ? `A-Level ภาษาไทย: ${Number(course.minAlevelThai).toFixed(2)}` : null,
               course.minAlevelEng ? `A-Level อังกฤษ: ${Number(course.minAlevelEng).toFixed(2)}` : null,
+              course.minAlevelForeign
+                ? `A-Level ต่างประเทศ${course.foreignLanguageSubject ? ` (${course.foreignLanguageSubject})` : ''}: ${Number(course.minAlevelForeign).toFixed(2)}`
+                : null,
             ].filter(Boolean)
 
             return (
@@ -166,8 +188,8 @@ export default async function OfficerCoursesPage() {
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-2">เกณฑ์คุณสมบัติขั้นต่ำที่ต้องผ่าน:</p>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-700">เกณฑ์คุณสมบัติขั้นต่ำที่ต้องผ่าน:</p>
                   <div className="flex flex-wrap gap-2">
                     {criteriaList.length > 0 ? (
                       criteriaList.map((crit, idx) => (
@@ -182,6 +204,13 @@ export default async function OfficerCoursesPage() {
                       <span className="text-xs text-slate-400">ไม่มีเกณฑ์คะแนนขั้นต่ำ</span>
                     )}
                   </div>
+
+                  {/* 📌 แสดงเงื่อนไขเพิ่มเติม (additionals) ถ้ามี */}
+                  {course.additionals && (
+                    <div className="mt-2 p-2.5 bg-amber-50/60 border border-amber-200/60 rounded-xl text-xs text-amber-900">
+                      <strong>เงื่อนไขเพิ่มเติม:</strong> {course.additionals}
+                    </div>
+                  )}
                 </div>
               </div>
             )

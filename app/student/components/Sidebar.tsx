@@ -20,12 +20,13 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
     router.push('/login')
   }
 
-  // 📌 เพิ่มเมนู "สมัครหลักสูตร" (/student/search) เข้าไปในแถบเมนู
+  // 📌 เพิ่มเมนู /student/search สำหรับประเมินเกณฑ์ แยกจาก /student/sample-apply ชัดเจน
   const navItems = [
     { label: 'ภาพรวม', href: '/student/dashboard' },
     { label: 'สถานะการสมัคร', href: '/student/applications' },
     { label: 'คะแนนของฉัน', href: '/student/scores' },
-    { label: 'ตัวอย่างการสมัครหลักสูตร', href: '/student/search' },
+    { label: 'ค้นหาและประเมินเกณฑ์', href: '/student/search' },
+    { label: 'ตัวอย่างการสมัครหลักสูตร', href: '/student/sample-apply' },
   ]
 
   return (
@@ -36,6 +37,7 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
           <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-white shadow-sm">
             KU
           </div>
+          <span className="font-bold text-sm">TCAS Student</span>
         </div>
 
         <nav className="space-y-1">
@@ -58,6 +60,7 @@ export default function Sidebar({ studentName, studentId }: SidebarProps) {
         </nav>
       </div>
 
+      {/* User Profile Footer */}
       <div className="p-3 bg-white/5 rounded-xl flex items-center justify-between">
         <div>
           <p className="font-medium text-sm">{studentName || 'นักเรียน'}</p>
