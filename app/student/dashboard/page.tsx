@@ -1,6 +1,40 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
+import SelectedProgramsList from './SelectedProgramsList'
+
+function evaluateProgram(student: any, criteria: any) {
+  const scores = student?.tcasScores
+
+  let failedReqs = 0
+
+  if (criteria.minGpax && criteria.minGpax > 0) {
+    if ((student.gpax || 0) < criteria.minGpax) failedReqs++
+  }
+
+  const gpaKeys = ['minMathGpa', 'minSciGpa', 'minEngGpa', 'minThaiGpa', 'minSocialGpa', 'minHealthGpa', 'minArtGpa', 'minCareerGpa']
+  const studentGpas = [student.mathGpa, student.sciGpa, student.engGpa, student.thaiGpa, student.socialGpa, student.healthGpa, student.artGpa, student.careerGpa]
+
+  gpaKeys.forEach((key, idx) => {
+    const target = criteria[key]
+    if (target && target > 0) {
+      if ((studentGpas[idx] || 0) < target) failedReqs++
+    }
+  })
+
+  if (criteria.minTgat && criteria.minTgat > 0) {
+    if ((scores?.tgat || 0) < criteria.minTgat) failedReqs++
+  }
+
+  for (let i = 1; i <= 5; i++) {
+    const target = criteria[`minTpat${i}`]
+    if (target && target > 0) {
+      if ((scores?.[`tpat${i}`] || 0) < target) failedReqs++
+    }
+  }
+
+  return failedReqs === 0 ? 'PASSED' : 'FAILED'
+}
 
 export default async function DashboardPage() {
   const cookieStore = await cookies()
@@ -10,18 +44,31 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // ดึงข้อมูลนักเรียน โดยเปลี่ยน id เป็น Studentsid ตาม Schema ใหม่
   const student = await prisma.student.findUnique({
     where: { Studentsid: studentId },
     include: { tcasScores: true },
   })
 
-  // หากไม่พบข้อมูลใน DB ให้ redirect ไปหน้า login ใหม่
   if (!student) {
     redirect('/login')
   }
 
-  // แปลงสถานะการตรวจสอบเอกสารให้แสดงผลตรงกับ Schema
+  // ดึงหลักสูตรทั้งหมดเพื่อส่งให้ระบบเลือกประเมิน
+  const allCriteria = await prisma.programCriteria.findMany({
+    include: { university: true },
+  })
+
+  const evaluatedPrograms = allCriteria.map((c: any) => ({
+    id: c.Program_Criteriaid || c.id,
+    programName: c.programName,
+    faculty: c.university?.faculty || '-',
+    department: c.university?.department || '-',
+    campus: c.university?.campus || 'บางเขน',
+    universityName: c.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์',
+    recruitAmount: c.capacity || 0,
+    evalStatus: evaluateProgram(student, c),
+  }))
+
   const getVerificationBadge = (status: string) => {
     switch (status) {
       case 'VERIFIED':
@@ -78,6 +125,9 @@ export default async function DashboardPage() {
           <p className="text-xs text-slate-400 mt-2">ระเบียนผลการเรียน (ปพ.1)</p>
         </div>
       </div>
+
+      {/* แสดงรายการสาขาวิชาที่คุณสนใจ/เลือกไว้ */}
+      <SelectedProgramsList allPrograms={evaluatedPrograms} />
     </div>
   )
 }

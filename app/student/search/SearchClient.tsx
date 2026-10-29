@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, CheckCircle2, XCircle, Building2, Users, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, CheckCircle2, XCircle, Building2, Users, AlertTriangle, ChevronDown, ChevronUp, Star } from 'lucide-react'
 
 type ProgramItem = {
   id: string
@@ -29,9 +29,37 @@ export default function SearchClient({
 }) {
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'ALL' | 'PASSED' | 'FAILED'>('ALL')
-
-  // 📌 State สำหรับเก็บสถานะ เปิด-ปิด ดูเงื่อนไขของแต่ละการ์ดหลักสูตร (แยกกันอิสระ)
   const [openCardIds, setOpenCardIds] = useState<Record<string, boolean>>({})
+  
+  // 📌 State เก็บ ID สาขาวิชาที่นักเรียนกดเลือกไว้
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  // โหลดข้อมูลสาขาที่เคยเลือกไว้จาก localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('selected_programs')
+    if (saved) {
+      try {
+        setSelectedIds(JSON.parse(saved))
+      } catch (e) {}
+    }
+  }, [])
+
+  // 📌 ฟังก์ชันสลับการเลือก/ยกเลิกสาขาวิชา (ล็อกให้เลือกได้เฉพาะสาขาที่ผ่านเกณฑ์เท่านั้น)
+  const toggleSelectProgram = (program: ProgramItem) => {
+    if (program.evalStatus === 'FAILED') {
+      alert('คุณไม่ผ่านเกณฑ์ขั้นต่ำของสาขานี้ จึงไม่สามารถเลือกเข้าหน้ารายการสรุปได้')
+      return
+    }
+
+    let updated: string[] = []
+    if (selectedIds.includes(program.id)) {
+      updated = selectedIds.filter((item) => item !== program.id)
+    } else {
+      updated = [...selectedIds, program.id]
+    }
+    setSelectedIds(updated)
+    localStorage.setItem('selected_programs', JSON.stringify(updated))
+  }
 
   const toggleCard = (id: string) => {
     setOpenCardIds((prev) => ({
@@ -141,6 +169,7 @@ export default function SearchClient({
         ) : (
           filteredPrograms.map((program) => {
             const isOpenDetails = !!openCardIds[program.id]
+            const isSelected = selectedIds.includes(program.id)
 
             return (
               <div
@@ -148,20 +177,36 @@ export default function SearchClient({
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4"
               >
                 <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-mono font-bold rounded">
                       {program.id}
                     </span>
 
-                    {program.evalStatus === 'PASSED' ? (
-                      <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> ผ่านเกณฑ์
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1">
-                        <XCircle className="w-3.5 h-3.5" /> ไม่ผ่านเกณฑ์
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* 📌 ปุ่มกดเลือกสาขาที่สนใจ */}
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectProgram(program)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#07382B] text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${isSelected ? 'fill-amber-400 text-amber-400' : ''}`} />
+                        {isSelected ? 'เลือกแล้ว' : '+ เลือกสาขานี้'}
+                      </button>
+
+                      {program.evalStatus === 'PASSED' ? (
+                        <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> ผ่านเกณฑ์
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5" /> ไม่ผ่านเกณฑ์
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <h3 className="font-bold text-slate-900 text-sm leading-snug">{program.programName}</h3>
@@ -177,18 +222,15 @@ export default function SearchClient({
                   </div>
                 </div>
 
+                {/* 📌 แสดงเฉพาะจำนวนรับ (เอาคำว่า ตรงตามเกณฑ์ X/Y ข้อ ออกตามสั่ง) */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1 text-slate-600">
                     <Users className="w-3.5 h-3.5 text-slate-400" />
                     <span>รับจำนวน: <strong className="text-slate-900">{program.recruitAmount}</strong> คน</span>
                   </div>
-
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    ตรงตามเกณฑ์ {program.passedCount}/{program.totalCount} ข้อ
-                  </span>
                 </div>
 
-                {/* 📌 ปุ่มกด เปิด-ปิด แสดงรายละเอียดเงื่อนไข */}
+                {/* ปุ่มเปิด-ปิดรายละเอียด */}
                 <div className="pt-2 border-t border-slate-100">
                   <button
                     type="button"
@@ -209,7 +251,6 @@ export default function SearchClient({
                     {isOpenDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
 
-                  {/* 📌 รายละเอียดเงื่อนไข (แสดงเฉพาะตอนที่เปิด) */}
                   {isOpenDetails && (
                     <div className="mt-2.5">
                       {program.evalStatus === 'PASSED' ? (
