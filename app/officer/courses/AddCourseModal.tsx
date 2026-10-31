@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X, RefreshCw, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Building, ListFilter, PenTool } from 'lucide-react'
+import { createCourseAction } from './actions'
 
 interface DepartmentOption {
   universityId: string
@@ -22,9 +23,11 @@ interface CriteriaState {
 export default function AddCourseModal({
   facultyName,
   departments = [],
+  officerUserId,
 }: {
   facultyName?: string
   departments?: DepartmentOption[]
+  officerUserId?: string
 }) {
   const router = useRouter()
   const [isOpenModal, setIsOpenModal] = useState(false)
@@ -229,14 +232,9 @@ export default function AddCourseModal({
 
     setIsLoading(true)
     try {
-      const res = await fetch('/api/officer/criteria', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const res = await createCourseAction(payload, officerUserId || '')
 
-      const data = await res.json()
-      if (res.ok && data.success) {
+      if (res.success) {
         setIsOpenModal(false)
         setSelectedDeptName('')
         setCustomDeptName('')
@@ -246,7 +244,7 @@ export default function AddCourseModal({
         setAdditionals('')
         router.refresh()
       } else {
-        setErrorMessage(data.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+        setErrorMessage(res.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
       }
     } catch (err) {
       console.error(err)

@@ -66,7 +66,7 @@ export default async function ReportsPage() {
 
   const universityId = teacher.universityId
 
-  // 📌 กรองผู้สมัครในสังกัดที่ไม่ถูกยกเลิก (CANCELLED)
+  // ดึงรายการผู้สมัครในสังกัดที่ไม่ถูกยกเลิก (CANCELLED)
   const applications = universityId
     ? await prisma.application.findMany({
         where: {
@@ -172,7 +172,6 @@ export default async function ReportsPage() {
     }
   })
 
-  // 📌 กรองเอาเฉพาะคนที่ผ่านเกณฑ์ขั้นต่ำ (isEligible) หรือ มีสถานะเป็น PASSED / CONFIRMED เท่านั้น
   const qualifiedApplications = allFormatted.filter(
     (app) => app.isEligible || app.status === 'PASSED' || app.status === 'CONFIRMED'
   )
@@ -181,6 +180,7 @@ export default async function ReportsPage() {
     <ReportsClient
       applications={qualifiedApplications}
       teacherName={teacher.name || 'อาจารย์ประจำสาขา'}
+      teacherUserId={teacher.Usersid} // 👈 ส่ง ID ของอาจารย์เพิ่ม
       facultyName={teacher.university?.faculty || 'คณะ'}
       departmentName={teacher.university?.department || 'สาขาวิชา'}
       universityName={teacher.university?.name || 'มหาวิทยาลัยเกษตรศาสตร์'}

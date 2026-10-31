@@ -30,6 +30,19 @@ export async function POST(req: Request) {
       )
     }
 
+    // 📌 บันทึกประวัติการเข้าสู่ระบบ (AuditLog)
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'LOGIN_SUCCESS',
+          details: `เจ้าหน้าที่คณะ (${user.name}) เข้าสู่ระบบสำเร็จ`,
+          userId: user.Usersid,
+        },
+      })
+    } catch (logErr) {
+      console.error('Officer Login AuditLog Error:', logErr)
+    }
+
     const res = NextResponse.json({
       success: true,
       user: {

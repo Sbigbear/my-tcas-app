@@ -3,7 +3,7 @@
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
-// 📌 1. บันทึกยืนยันผลทีละคน
+// 📌 1. บันทึกยืนยันผลทีละคน (Single Confirm)
 export async function confirmFacultyOfficer(
   applicationId: string,
   officerUserId: string,
@@ -18,53 +18,50 @@ export async function confirmFacultyOfficer(
       },
     })
 
+    if (!application) {
+      return { success: false, message: 'ไม่พบข้อมูลใบสมัคร' }
+    }
+
     const officer = await prisma.user.findUnique({
       where: { Usersid: officerUserId },
       include: { university: true },
     })
 
-    const studentName = application?.student?.name || 'ไม่ระบุชื่อนักเรียน'
-    const studentCode = application?.student?.nationalId || application?.student?.studentCode || ''
+    const studentName = application.student?.name || 'ไม่ระบุชื่อนักเรียน'
+    const studentCode = application.student?.nationalId || application.student?.studentCode || ''
     const officerName = officer?.name || 'เจ้าหน้าที่คณะ'
-    const programName = application?.criteria?.programName || 'หลักสูตร'
-    const facultyName = application?.criteria?.university?.faculty || ''
+    const programName = application.criteria?.programName || 'หลักสูตร'
+    const facultyName = application.criteria?.university?.faculty || ''
 
-    await prisma.facultyConfirmation.upsert({
-      where: { applicationId: applicationId },
-      update: {
-        confirmedBy: officerUserId,
-        confirmedRole: 'OFFICER' as any,
-        note: note || `เจ้าหน้าที่บันทึกยืนยันผลของ ${studentName} ส่งมหาวิทยาลัย`,
-      },
-      create: {
-        applicationId: applicationId,
-        confirmedBy: officerUserId,
-        confirmedRole: 'OFFICER' as any,
-        note: note || `เจ้าหน้าที่บันทึกยืนยันผลของ ${studentName} ส่งมหาวิทยาลัย`,
-      },
-    })
-
-    await prisma.application.update({
-      where: { Applicationsid: applicationId },
-      data: { status: 'CONFIRMED' as any },
-    })
-
-    try {
-      const logDetails = `เจ้าหน้าที่คณะ (${officerName}) บันทึกยืนยันผลการคัดเลือกของนักเรียน: ${studentName} (${studentCode}) ในหลักสูตร ${programName} (${facultyName}) ส่งไปยังมหาวิทยาลัยเรียบร้อยแล้ว`
-
-      if ((prisma as any).auditLog) {
-        await (prisma as any).auditLog.create({
-          data: {
-            action: 'CONFIRM_STUDENT',
-            details: logDetails,
-            userId: officerUserId,
-            studentId: application?.studentId || null,
-          },
-        })
-      }
-    } catch (logErr) {
-      console.error('AuditLog Error:', logErr)
-    }
+    // 💡 ใช้ Transaction ครอบการอัปเดตและบันทึก AuditLog ให้ทำรายการพร้อมกันอย่างสมบูรณ์
+    await prisma.$transaction([
+      prisma.facultyConfirmation.upsert({
+        where: { applicationId: applicationId },
+        update: {
+          confirmedBy: officerUserId,
+          confirmedRole: 'OFFICER' as any,
+          note: note || `เจ้าหน้าที่บันทึกยืนยันผลของ ${studentName} ส่งมหาวิทยาลัย`,
+        },
+        create: {
+          applicationId: applicationId,
+          confirmedBy: officerUserId,
+          confirmedRole: 'OFFICER' as any,
+          note: note || `เจ้าหน้าที่บันทึกยืนยันผลของ ${studentName} ส่งมหาวิทยาลัย`,
+        },
+      }),
+      prisma.application.update({
+        where: { Applicationsid: applicationId },
+        data: { status: 'CONFIRMED' as any },
+      }),
+      prisma.auditLog.create({
+        data: {
+          action: 'CONFIRM_STUDENT',
+          details: `เจ้าหน้าที่คณะ (${officerName}) บันทึกยืนยันผลการคัดเลือกของนักเรียน: ${studentName} (${studentCode}) ในหลักสูตร ${programName} (${facultyName}) ส่งไปยังมหาวิทยาลัยเรียบร้อยแล้ว`,
+          userId: officerUserId,
+          studentId: application.studentId || null,
+        },
+      }),
+    ])
 
     revalidatePath('/officer/confirmations')
     revalidatePath('/admin/logs')
@@ -97,53 +94,60 @@ export async function confirmBulkFacultyOfficer(
     const officerName = officer?.name || 'เจ้าหน้าที่คณะ'
     const facultyName = officer?.university?.faculty || ''
 
-    // ดึงข้อมูลผู้สมัครที่ถูกเลือกทั้งหมด
     const applications = await prisma.application.findMany({
       where: { Applicationsid: { in: applicationIds } },
       include: { student: true, criteria: true },
     })
 
-    // บันทึกยืนยันผลลงตาราง FacultyConfirmation และเปลี่ยนสถานะเป็น CONFIRMED
+    if (applications.length === 0) {
+      return { success: false, message: 'ไม่พบรายการใบสมัครที่เลือก' }
+    }
+
+    // 💡 รวบรวม Query ทั้งหมดไว้ในอาร์เรย์แล้วรันผ่าน $transaction ครั้งเดียว
+    const transactions: any[] = []
+
     for (const app of applications) {
       const studentName = app.student?.name || 'นักเรียน'
-      
-      await prisma.facultyConfirmation.upsert({
-        where: { applicationId: app.Applicationsid },
-        update: {
-          confirmedBy: officerUserId,
-          confirmedRole: 'OFFICER' as any,
-          note: note || `เจ้าหน้าที่บันทึกยืนยันผลส่งมหาวิทยาลัย (อนุมัติยกแพ็ก)`,
-        },
-        create: {
-          applicationId: app.Applicationsid,
-          confirmedBy: officerUserId,
-          confirmedRole: 'OFFICER' as any,
-          note: note || `เจ้าหน้าที่บันทึกยืนยันผลส่งมหาวิทยาลัย (อนุมัติยกแพ็ก)`,
-        },
-      })
 
-      await prisma.application.update({
-        where: { Applicationsid: app.Applicationsid },
-        data: { status: 'CONFIRMED' as any },
-      })
-    }
-
-    // บันทึก AuditLog รวบยอด
-    try {
-      const logDetails = `เจ้าหน้าที่คณะ (${officerName}) บันทึกยืนยันผลการคัดเลือกนักเรียนแบบอนุมัติยกแพ็ก จำนวนทั้งหมด ${applications.length} รายการ ส่งไปยังมหาวิทยาลัยเรียบร้อยแล้ว (${facultyName})`
-
-      if ((prisma as any).auditLog) {
-        await (prisma as any).auditLog.create({
-          data: {
-            action: 'CONFIRM_STUDENT',
-            details: logDetails,
-            userId: officerUserId,
+      transactions.push(
+        prisma.facultyConfirmation.upsert({
+          where: { applicationId: app.Applicationsid },
+          update: {
+            confirmedBy: officerUserId,
+            confirmedRole: 'OFFICER' as any,
+            note: note || `เจ้าหน้าที่บันทึกยืนยันผลส่งมหาวิทยาลัย (อนุมัติยกแพ็ก)`,
+          },
+          create: {
+            applicationId: app.Applicationsid,
+            confirmedBy: officerUserId,
+            confirmedRole: 'OFFICER' as any,
+            note: note || `เจ้าหน้าที่บันทึกยืนยันผลส่งมหาวิทยาลัย (อนุมัติยกแพ็ก)`,
           },
         })
-      }
-    } catch (logErr) {
-      console.error('Bulk AuditLog Error:', logErr)
+      )
+
+      transactions.push(
+        prisma.application.update({
+          where: { Applicationsid: app.Applicationsid },
+          data: { status: 'CONFIRMED' as any },
+        })
+      )
     }
+
+    // เพิ่มการบันทึก AuditLog สรุปประวัติยกแพ็กลงใน Transaction
+    const logDetails = `เจ้าหน้าที่คณะ (${officerName}) บันทึกยืนยันผลการคัดเลือกนักเรียนแบบอนุมัติยกแพ็ก จำนวนทั้งหมด ${applications.length} รายการ ส่งไปยังมหาวิทยาลัยเรียบร้อยแล้ว (${facultyName})`
+
+    transactions.push(
+      prisma.auditLog.create({
+        data: {
+          action: 'CONFIRM_STUDENT',
+          details: logDetails,
+          userId: officerUserId,
+        },
+      })
+    )
+
+    await prisma.$transaction(transactions)
 
     revalidatePath('/officer/confirmations')
     revalidatePath('/admin/logs')

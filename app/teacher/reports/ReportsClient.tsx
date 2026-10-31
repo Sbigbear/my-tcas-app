@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Printer, Search, CheckCircle, Award, Users } from 'lucide-react'
+import { logReportExportAction } from './actions'
 
 export interface ReportApplication {
   id: string
@@ -24,6 +25,7 @@ export interface ReportApplication {
 interface ReportsClientProps {
   applications: ReportApplication[]
   teacherName: string
+  teacherUserId: string // 👈 รับ ID ของอาจารย์เพิ่ม
   facultyName: string
   departmentName: string
   universityName: string
@@ -32,6 +34,7 @@ interface ReportsClientProps {
 export default function ReportsClient({
   applications,
   teacherName,
+  teacherUserId,
   facultyName,
   departmentName,
   universityName,
@@ -63,9 +66,15 @@ export default function ReportsClient({
     return true
   })
 
-  // สั่งพิมพ์ออกทาง PDF
-  const handlePrint = (type: 'ALL' | 'PASSED' | 'CONFIRMED') => {
+  // 📌 สั่งพิมพ์ออกทาง PDF และบันทึก AuditLog เฉพาะตอนกดปุ่ม
+  const handlePrint = async (type: 'ALL' | 'PASSED' | 'CONFIRMED') => {
     setFilterType(type)
+    
+    // บันทึก Log เมื่อกดพิมพ์ PDF
+    if (teacherUserId) {
+      await logReportExportAction(teacherUserId, type)
+    }
+
     setTimeout(() => {
       window.print()
     }, 150)
@@ -99,6 +108,8 @@ export default function ReportsClient({
             width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
           }
           table {
             border-collapse: collapse !important;
@@ -111,6 +122,11 @@ export default function ReportsClient({
           th {
             background-color: #f8fafc !important;
             -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          span {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
         }
       `}</style>

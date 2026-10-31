@@ -24,6 +24,19 @@ export async function POST(request: Request) {
       )
     }
 
+    // 📌 บันทึกประวัติการเข้าสู่ระบบ (AuditLog) ของนักเรียน
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'LOGIN_SUCCESS',
+          details: `นักเรียน (${student.name}) เข้าสู่ระบบสำเร็จ`,
+          studentId: student.Studentsid,
+        },
+      })
+    } catch (logErr) {
+      console.error('Student Login AuditLog Error:', logErr)
+    }
+
     const response = NextResponse.json({
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
@@ -44,7 +57,6 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24, // 1 วัน
     }
 
-    // 📌 ฝัง Cookie โดยใช้ ?? '' ป้องกันค่า null
     response.cookies.set('student_id', student.Studentsid, cookieOptions)
     response.cookies.set('userId', student.Studentsid, cookieOptions)
     response.cookies.set('studentCode', student.studentCode ?? '', cookieOptions)

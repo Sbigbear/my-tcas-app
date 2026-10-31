@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 🔒 1. ลองตรวจเช็กด้วย bcrypt compare ก่อน (สำหรับรหัสผ่านที่แฮชแล้ว)
+    // 🔒 1. ตรวจเช็กด้วย bcrypt compare
     let isPasswordValid = false
     try {
       isPasswordValid = await bcrypt.compare(password, user.password)
@@ -42,7 +42,6 @@ export async function POST(req: Request) {
     if (!isPasswordValid && user.password === password) {
       isPasswordValid = true
 
-      // แฮชรหัสผ่านใหม่ แล้วอัปเดตลงตาราง D1_Users ใน DB ทันที
       try {
         const hashedPassword = await bcrypt.hash(password, 10)
         await prisma.user.update({
@@ -59,6 +58,19 @@ export async function POST(req: Request) {
         { success: false, message: 'รหัสผ่านไม่ถูกต้อง' },
         { status: 400 }
       )
+    }
+
+    // 📌 บันทึกประวัติการเข้าสู่ระบบ (AuditLog)
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'LOGIN_SUCCESS',
+          details: `ผู้ดูแลระบบ/เจ้าหน้าที่ (${user.name}) เข้าสู่ระบบสำเร็จ`,
+          userId: user.Usersid,
+        },
+      })
+    } catch (logErr) {
+      console.error('Admin Login AuditLog Error:', logErr)
     }
 
     const response = NextResponse.json({

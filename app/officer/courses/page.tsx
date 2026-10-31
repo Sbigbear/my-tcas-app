@@ -96,7 +96,12 @@ export default async function OfficerCoursesPage() {
           </p>
         </div>
 
-        <AddCourseModal facultyName={facultyName} departments={departmentOptions} />
+        {/* 📌 ส่ง officerUserId เพิ่มเติมตรงนี้ */}
+        <AddCourseModal
+          facultyName={facultyName}
+          departments={departmentOptions}
+          officerUserId={officer?.Usersid}
+        />
       </div>
 
       <div className="space-y-4">

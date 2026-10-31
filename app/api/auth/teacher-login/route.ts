@@ -44,6 +44,19 @@ export async function POST(request: Request) {
       )
     }
 
+    // 📌 บันทึกประวัติการเข้าสู่ระบบ (AuditLog)
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'LOGIN_SUCCESS',
+          details: `อาจารย์ (${teacher.name}) เข้าสู่ระบบสำเร็จ`,
+          userId: teacher.Usersid,
+        },
+      })
+    } catch (logErr) {
+      console.error('Teacher Login AuditLog Error:', logErr)
+    }
+
     const response = NextResponse.json({
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',

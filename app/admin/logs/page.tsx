@@ -24,12 +24,19 @@ export default async function LogsPage() {
         }
       }
 
-      // 📌 แมปประเภทหมวดหมู่ Log ให้แสดงในแท็บ "หลักสูตร" อย่างแม่นยำ
+      // 📌 แมปประเภทหมวดหมู่ Log ให้ครอบคลุมทุก Action
       let logType: LogEntry['type'] = 'system'
       const actionText = (log.action || '').toLowerCase()
       const detailsText = (log.details || '').toLowerCase()
 
       if (
+        actionText.includes('report') ||
+        actionText.includes('export') ||
+        detailsText.includes('รายงาน') ||
+        detailsText.includes('pdf')
+      ) {
+        logType = 'report'
+      } else if (
         actionText.includes('confirm') ||
         actionText.includes('pass') ||
         detailsText.includes('ผ่านการคัดเลือก') ||
