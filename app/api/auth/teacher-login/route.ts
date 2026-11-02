@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 🔒 ตรวจสอบรหัสผ่านแฮชด้วย bcrypt.compare
+    // bcrypt.compare
     const isPasswordValid = await bcrypt.compare(password, teacher.password)
     if (!isPasswordValid) {
       return NextResponse.json(

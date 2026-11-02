@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Users, BookOpen, Clock, LogOut } from 'lucide-react'
+// 📌 1. เพิ่ม RefreshCw เข้ามาใช้งาน
+import { Home, Users, BookOpen, Clock, LogOut, RefreshCw } from 'lucide-react'
 
 export default function AdminSidebar() {
   const pathname = usePathname()
@@ -28,10 +29,12 @@ export default function AdminSidebar() {
     router.push('/login')
   }
 
+  // 📌 2. เพิ่มรายการเมนู 'ซิงก์ข้อมูลจำลอง' ชี้ไปที่ /admin/sync
   const navItems = [
     { name: 'ภาพรวม', href: '/admin/dashboard', icon: Home },
     { name: 'จัดการผู้ใช้งาน', href: '/admin/users', icon: Users },
     { name: 'จัดการหลักสูตร', href: '/admin/courses', icon: BookOpen },
+    { name: 'ซิงก์ข้อมูลจำลอง', href: '/admin/sync', icon: RefreshCw },
     { name: 'ประวัติการทำงาน', href: '/admin/logs', icon: Clock },
   ]
 
