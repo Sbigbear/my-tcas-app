@@ -204,7 +204,7 @@ export async function POST(req: Request) {
 
     const targetStudentId = bodyStudentId || cookieStudentId
 
-    // ดึงข้อมูลนักเรียนพร้อมคะแนน TCAS
+    // 📌 ดึงข้อมูลนักเรียนพร้อมคะแนน TCAS
     let student = null
     if (targetStudentId) {
       student = await prisma.student.findFirst({
@@ -219,29 +219,44 @@ export async function POST(req: Request) {
       })
     }
 
-    if (!student) {
-      student = await prisma.student.findFirst({
-        orderBy: { createdAt: 'asc' },
-        include: { tcasScores: true },
-      })
-    }
-
+    // ❌ [แก้ข้อ 3.1] ถอด Fallback ที่ดึงนักเรียนคนแรกใน DB ออก ป้องกันการสมัครผิดคน
     if (!student) {
       return NextResponse.json(
-        { success: false, message: 'ไม่พบข้อมูลนักเรียนในฐานข้อมูล' },
+        { success: false, message: 'ไม่พบข้อมูลนักเรียนที่ระบุในระบบ กรุณาเข้าสู่ระบบอีกครั้ง' },
         { status: 404 }
       )
     }
 
-    // ดึงเกณฑ์ของหลักสูตรที่จะสมัคร
+    // 📌 [แก้ข้อ 3.2] ดึงเกณฑ์ของหลักสูตร พร้อมนับจำนวนผู้สมัครปัจจุบัน (_count)
     const criteria = await prisma.programCriteria.findUnique({
       where: { Program_Criteriaid: criteriaId },
+      include: {
+        _count: {
+          select: { applications: true },
+        },
+      },
     })
 
     if (!criteria) {
       return NextResponse.json(
         { success: false, message: 'ไม่พบข้อมูลเกณฑ์หลักสูตรนี้' },
         { status: 404 }
+      )
+    }
+
+    // 📌 เช็กว่าหลักสูตรปิดรับสมัครอยู่หรือไม่
+    if (criteria.isOpen === false) {
+      return NextResponse.json(
+        { success: false, message: 'หลักสูตรนี้ปิดรับสมัครแล้ว' },
+        { status: 400 }
+      )
+    }
+
+    // 📌 เช็กว่าผู้สมัครเต็มโควตา (capacity) หรือยัง
+    if (criteria.capacity && criteria._count.applications >= criteria.capacity) {
+      return NextResponse.json(
+        { success: false, message: 'หลักสูตรนี้มีผู้สมัครเต็มจำนวนโควตาแล้ว' },
+        { status: 400 }
       )
     }
 

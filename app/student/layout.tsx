@@ -11,10 +11,15 @@ export default async function StudentLayout({ children }: { children: React.Reac
     redirect('/login')
   }
 
-  // ค้นหาด้วย Primary Key ใหม่ (Studentsid)
+  // ค้นหาด้วย Primary Key (Studentsid)
   const student = await prisma.student.findUnique({
     where: { Studentsid: studentId },
   })
+
+  // หากหาไม่เจอในฐานข้อมูล ให้ Redirect ไปหน้า Login
+  if (!student) {
+    redirect('/login')
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">

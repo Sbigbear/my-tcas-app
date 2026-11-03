@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { ApplicationStatus, Role } from '@prisma/client'
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
       data: {
         applicationId,
         confirmedBy: officerId,
-        confirmedRole: 'OFFICER',
+        confirmedRole: Role.OFFICER, // ใช้ Enum จาก @prisma/client เพื่อ Type Safety
         note: note || null,
       },
     })
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     // 2. ปรับสถานะ Application เป็น CONFIRMED
     await prisma.application.update({
       where: { Applicationsid: applicationId },
-      data: { status: 'CONFIRMED' },
+      data: { status: ApplicationStatus.CONFIRMED }, // ใช้ Enum จาก @prisma/client ป้องกันการพิมพ์ผิด
     })
 
     return NextResponse.json({ success: true, data: confirmation })

@@ -1,10 +1,11 @@
-// app/api/teacher/criteria/route.ts
+// app/api/teacher/applications/route.ts
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
+import { ApplicationStatus } from '@prisma/client'
 
-// GET: ดึงข้อมูลเกณฑ์ (สำหรับอาจารย์ใช้อ่าน/ดูเกณฑ์อ้างอิงในการคัดเลือก)
+// GET: ดึงข้อมูลรายการ/เกณฑ์สำหรับอาจารย์ใช้อ่านและคัดเลือก
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -29,13 +30,13 @@ export async function GET(request: Request) {
       }
 
       if (userEmail || userId) {
+        // กรองเฉพาะเงื่อนไขที่มีค่า ป้องกัน Object ว่าง {} ดึง User คนแรกสุด
+        const orConditions = []
+        if (userEmail) orConditions.push({ email: userEmail })
+        if (userId) orConditions.push({ Usersid: userId })
+
         const user = await prisma.user.findFirst({
-          where: {
-            OR: [
-              userEmail ? { email: userEmail } : {},
-              userId ? { Usersid: userId } : {},
-            ],
-          },
+          where: { OR: orConditions },
           select: { universityId: true },
         })
         universityId = user?.universityId || null
@@ -53,9 +54,53 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: criteria })
   } catch (error) {
-    console.error('Error fetching criteria for teacher:', error)
+    console.error('Error fetching applications/criteria for teacher:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch criteria' },
+      { success: false, message: 'Failed to fetch data' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST / PUT: สำหรับอาจารย์กดประเมินสถานะผู้สมัคร (ผ่าน / ไม่ผ่าน)
+export async function PUT(req: Request) {
+  try {
+    const { applicationId, status, remark } = await req.json()
+
+    if (!applicationId || !status) {
+      return NextResponse.json(
+        { success: false, message: 'ข้อมูลไม่ครบถ้วน (applicationId หรือ status)' },
+        { status: 400 }
+      )
+    }
+
+    // 💡 ป้องกัน Error ข้อ 1: ตรวจสอบและแปลง Status ให้ตรงตาม Prisma Enum
+    // ใน Schema Enum มี: PENDING, ELIGIBLE, INELIGIBLE, PASSED, CONFIRMED, CANCELLED (ไม่มี REJECTED)
+    let updatedStatus: ApplicationStatus
+
+    if (status === 'PASSED' || status === ApplicationStatus.PASSED) {
+      updatedStatus = ApplicationStatus.PASSED
+    } else if (status === 'REJECTED' || status === 'INELIGIBLE' || status === ApplicationStatus.INELIGIBLE) {
+      // หากฝั่ง Frontend ส่ง 'REJECTED' หรือ 'INELIGIBLE' มา ให้แมปเป็น INELIGIBLE เสมอ
+      updatedStatus = ApplicationStatus.INELIGIBLE
+    } else {
+      updatedStatus = status as ApplicationStatus
+    }
+
+    const updatedApplication = await prisma.application.update({
+      where: { Applicationsid: applicationId },
+      data: {
+        status: updatedStatus,
+        remark: remark || null,
+        evaluatedAt: new Date(),
+      },
+    })
+
+    return NextResponse.json({ success: true, data: updatedApplication })
+  } catch (error: any) {
+    console.error('Teacher evaluation error:', error)
+    return NextResponse.json(
+      { success: false, message: error.message || 'เกิดข้อผิดพลาดในการบันทึกผลการประเมิน' },
       { status: 500 }
     )
   }

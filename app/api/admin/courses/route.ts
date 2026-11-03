@@ -14,14 +14,16 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // 📌 Step 1: ลบรายการสมัครของนักเรียนที่ผูกกับหลักสูตรนี้ก่อน (ใช้ชื่อฟิลด์ Program_Criteriaid ตาม Schema)
+    // 📌 Step 1: ลบรายการสมัครของนักเรียนที่ผูกกับหลักสูตรนี้ก่อน 
+    // (ใช้ criteriaId ให้ตรงตาม schema.prisma เอา `as any` ออกได้เลย)
     await prisma.application.deleteMany({
       where: {
-        Program_Criteriaid: id,
-      } as any,
+        criteriaId: id,
+      },
     })
 
-    // 📌 Step 2: ลบข้อมูลหลักสูตรออกจากตาราง ProgramCriteria (ใช้ deleteMany ป้องกัน Error P2025)
+    // 📌 Step 2: ลบข้อมูลหลักสูตรออกจากตาราง ProgramCriteria
+    // (ใช้ Program_Criteriaid ตาม Primary Key ของตารางหลักสูตร)
     await prisma.programCriteria.deleteMany({
       where: {
         Program_Criteriaid: id,
