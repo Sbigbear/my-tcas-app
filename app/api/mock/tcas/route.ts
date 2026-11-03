@@ -1,34 +1,35 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import fs from 'fs'
+import tcasScoresData from '@/data/mock_tcas_scores.json'
 
+// GET: ส่งคืนข้อมูลคะแนน TCAS จำลองให้หน้าเว็บดู (Mock API)
+export async function GET() {
+  return NextResponse.json(tcasScoresData)
+}
+
+// POST: ซิงก์ข้อมูลคะแนน TCAS ลง MySQL (TiDB Cloud)
 export async function POST() {
   try {
-    // 1. อ่านไฟล์จากโฟลเดอร์ D:\DATA\mock_tcas.json
-    const filePath = 'D:/DATA/mock_tcas.json'
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json(
-        { success: false, message: 'ไม่พบไฟล์ D:\\DATA\\mock_tcas.json' },
-        { status: 404 }
-      )
+    let scores: any[] = []
+    const parsedData: any = tcasScoresData
+
+    if (Array.isArray(parsedData)) {
+      scores = parsedData
+    } else {
+      scores = parsedData.scores || []
     }
 
-    const fileContent = fs.readFileSync(filePath, 'utf8')
-    const { scores } = JSON.parse(fileContent)
-
-    if (!scores || !Array.isArray(scores)) {
-      return NextResponse.json({ success: false, message: 'รูปแบบข้อมูลคะแนนไม่ถูกต้อง' }, { status: 400 })
+    if (!Array.isArray(scores) || scores.length === 0) {
+      return NextResponse.json({ success: false, message: 'รูปแบบข้อมูลคะแนนไม่ถูกต้อง หรือไม่พบข้อมูล' }, { status: 400 })
     }
 
-    // 2. แมปคะแนนด้วย nationalId 13 หลักเพื่อดึง studentId แล้วบันทึกลง D4_Tcas_Scores
+    // แมปคะแนนด้วย nationalId 13 หลัก แล้วบันทึกลงตาราง D4_Tcas_Scores
     const savedScores = []
     for (const sc of scores) {
-      // ค้นหานักเรียนด้วย nationalId 13 หลัก
       const student = await prisma.student.findUnique({
         where: { nationalId: sc.nationalId },
       })
 
-      // ถ้านักเรียนคนนี้ยังไม่มีในฐานข้อมูล ให้ข้ามไปก่อน
       if (!student) continue
 
       const scoreData = {
@@ -63,7 +64,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: `อ่านไฟล์ mock_tcas.json นำเข้าคะแนนแมปด้วยเลข 13 หลัก ลง MySQL สำเร็จ ${savedScores.length} รายการ`,
+      message: `นำเข้าคะแนน TCAS สำเร็จ ${savedScores.length} รายการ`,
       data: savedScores,
     })
   } catch (error: any) {

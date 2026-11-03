@@ -90,7 +90,7 @@ export default function AdminSyncPage() {
           จำลองการนำเข้าข้อมูลภายนอก (Mock Data Sync)
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          จำลองระบบรับส่งข้อมูลจากโรงเรียน (ปพ.1) และ ทปอ. (TCAS) จากไฟล์บนไดรฟ์ D เข้าสู่ MySQL
+          จำลองระบบรับส่งข้อมูลจากโรงเรียน (ปพ.1) และ ทปอ. (TCAS) ผ่าน Web API เข้าสู่ MySQL (TiDB Cloud)
         </p>
       </div>
 
@@ -105,7 +105,7 @@ export default function AdminSyncPage() {
             <div>
               <h2 className="text-lg font-bold text-gray-800">1. ข้อมูลโรงเรียน & นักเรียน (ปพ.1)</h2>
               <p className="text-xs text-gray-500 mt-1">
-                อ่านไฟล์ <code className="bg-gray-100 px-1.5 py-0.5 rounded text-emerald-800 font-mono">D:\DATA\mock_school.json</code>
+                อ่านข้อมูลจาก Mock Data (<code className="bg-gray-100 px-1.5 py-0.5 rounded text-emerald-800 font-mono">data/mock_students.json</code>)
               </p>
             </div>
             <ul className="text-xs text-gray-600 space-y-1.5 list-disc list-inside">
@@ -133,7 +133,7 @@ export default function AdminSyncPage() {
             <div>
               <h2 className="text-lg font-bold text-gray-800">2. คะแนนสอบ TCAS</h2>
               <p className="text-xs text-gray-500 mt-1">
-                อ่านไฟล์ <code className="bg-gray-100 px-1.5 py-0.5 rounded text-blue-800 font-mono">D:\DATA\mock_tcas.json</code>
+                อ่านข้อมูลจาก Mock Data (<code className="bg-gray-100 px-1.5 py-0.5 rounded text-blue-800 font-mono">data/mock_tcas_scores.json</code>)
               </p>
             </div>
             <ul className="text-xs text-gray-600 space-y-1.5 list-disc list-inside">
