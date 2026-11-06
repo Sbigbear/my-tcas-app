@@ -8,11 +8,13 @@ export default async function OfficerLayout({
   children: React.ReactNode
 }) {
   const cookieStore = await cookies()
-  const token = cookieStore.get('token')?.value
-  const userRole = cookieStore.get('user_role')?.value || cookieStore.get('role')?.value
+  
+  // 📌 เปลี่ยนมาดึง officer_id และ role ให้ตรงกับ API
+  const officerId = cookieStore.get('officer_id')?.value || cookieStore.get('userId')?.value
+  const userRole = cookieStore.get('role')?.value || cookieStore.get('user_role')?.value
 
   // เช็กสิทธิ์ OFFICER หรือ ADMIN
-  if (!token || (userRole !== 'OFFICER' && userRole !== 'ADMIN')) {
+  if (!officerId || (userRole !== 'OFFICER' && userRole !== 'ADMIN')) {
     redirect('/login')
   }
 
