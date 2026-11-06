@@ -11,12 +11,13 @@ export default async function TeacherLayout({ children }: { children: React.Reac
     redirect('/login')
   }
 
-  // ค้นหาอาจารย์ด้วย Primary Key (Usersid)
+  // 📌 แปลงค่า teacherId ให้รองรับทั้งประเภท Int/BigInt และ String ใน Prisma
+  const parsedId = isNaN(Number(teacherId)) ? teacherId : Number(teacherId)
+
   const teacher = await prisma.user.findUnique({
-    where: { Usersid: teacherId },
+    where: { Usersid: parsedId as any },
   })
 
-  // เช็กตัวตน และตรวจสอบ Role ว่าเป็น TEACHER หรือ ADMIN เท่านั้น
   if (!teacher || (teacher.role !== 'TEACHER' && teacher.role !== 'ADMIN')) {
     redirect('/login')
   }

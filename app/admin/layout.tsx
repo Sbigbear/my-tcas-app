@@ -4,11 +4,13 @@ import AdminSidebar from './components/AdminSidebar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
-  const token = cookieStore.get('token')?.value
-  const userRole = cookieStore.get('user_role')?.value || cookieStore.get('role')?.value
+  
+  // 📌 เปลี่ยนมาดึง admin_id และ role ให้ตรงกับที่ตั้งใน admin-login/route.ts
+  const adminId = cookieStore.get('admin_id')?.value || cookieStore.get('userId')?.value
+  const userRole = cookieStore.get('role')?.value
 
-  // เช็กสิทธิ์ ADMIN
-  if (!token || userRole !== 'ADMIN') {
+  // เช็กสิทธิ์ ADMIN หรือ OFFICER
+  if (!adminId || (userRole !== 'ADMIN' && userRole !== 'OFFICER')) {
     redirect('/login')
   }
 
